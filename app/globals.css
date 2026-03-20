@@ -8,36 +8,36 @@
 :root {
   --background: #050505;
   --foreground: #ededed;
-  --accent: #00ff88; /* 荧光绿 */
+  --accent: #00ff88; /* Neon Green */
   --accent-soft: rgba(0, 255, 136, 0.1);
   --grid-color: rgba(255, 255, 255, 0.03);
 }
 
 /* ----------------------------------------------
-   🟢 极客专用：自定义霓虹滚动条 (Custom Scrollbar)
-   适配 Webkit 浏览器 (Chrome, Edge, Safari)
+   Neon Scrollbar for Geeks
+   Webkit support
 ---------------------------------------------- */
 ::-webkit-scrollbar {
-  width: 6px; /* 极细宽度 */
+  width: 6px; /* Ultra-thin */
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #050505; /* 纯黑背景轨道 */
+  background: #050505; /* Black track */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 136, 0.2); /* 默认半透明荧光绿 */
+  background: rgba(0, 255, 136, 0.2); /* Default translucency */
   border-radius: 10px;
   transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00ff88; /* 悬停时变为高亮荧光绿 */
-  box-shadow: 0 0 10px #00ff88; /* 悬停时带一点发光 */
+  background: #00ff88; /* High-glow on hover */
+  box-shadow: 0 0 10px #00ff88; /* Glow effect */
 }
 
-/* Firefox 支持 */
+/* Firefox Support */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 255, 136, 0.2) #050505;
@@ -50,7 +50,7 @@ body {
   overflow-x: hidden;
 }
 
-/* 极客网格背景 */
+/* Grid Background */
 .bg-grid {
   background-image: 
     linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
@@ -58,12 +58,12 @@ body {
   background-size: 40px 40px;
 }
 
-/* 霓虹发光文字 */
+/* Neon Text Glow */
 .text-glow {
   text-shadow: 0 0 10px var(--accent-soft), 0 0 20px var(--accent-soft);
 }
 
-/* 荧光按钮 */
+/* Neon Button */
 @layer components {
   .btn-glow {
     @apply transition-all duration-300;
@@ -75,7 +75,7 @@ body {
   }
 }
 
-/* 模拟器终端样式 */
+/* Simulator Terminal UI */
 .terminal-window {
   background: rgba(10, 10, 10, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);

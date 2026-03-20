@@ -157,11 +157,11 @@ const StatsBoard = () => {
           <div className="max-w-xl">
             <div className="text-xs font-mono text-[#00ff88] mb-4 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse" />
-              协议状态：已部署至 Base Mainnet
+              Protocol Status: Deployed on Base Mainnet
             </div>
             <h2 className="text-4xl font-bold mb-6">Protocol Status</h2>
             <p className="text-gray-400 text-lg leading-relaxed">
-              PayNode 协议已通过 CREATE2 确定性部署至 Base 主网。合约地址在所有 EVM 链上保持一致，确保了 Agent 跨链支付的地址稳定性。
+              The PayNode protocol is deterministically deployed on Base Mainnet via CREATE2. Contract addresses are consistent across all EVM chains, ensuring deterministic addressing for Agent payments.
             </p>
           </div>
           <div className="flex flex-col gap-4 w-full md:w-auto">
@@ -169,7 +169,7 @@ const StatsBoard = () => {
               href="/pom" 
               className="px-8 py-4 bg-[#00ff88] text-black font-bold rounded-xl btn-glow flex items-center justify-center gap-2 hover:scale-105 transition-all"
             >
-              进入资源管理器 (Explorer) <ChevronRight size={20} />
+              Enter Explorer <ChevronRight size={20} />
             </a>
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 font-mono text-[10px] text-gray-500 text-center">
               Router: 0xA88B5eaD188De39c015AC51F45E1B41D3d95f2bb
@@ -182,9 +182,9 @@ const StatsBoard = () => {
             <div className="w-12 h-12 rounded-full bg-[#00ff88]/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Globe className="text-[#00ff88]" size={24} />
             </div>
-            <h3 className="text-xl font-bold mb-4">主网：100% 生产就绪</h3>
+            <h3 className="text-xl font-bold mb-4">Mainnet: 100% Production Ready</h3>
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
-              主网路由已锁定。商户可直接集成 SDK 开始接收 USDC 支付，协议将自动执行 99% / 1% 的原子分账逻辑，无需任何中心化托管。
+              Mainnet router is locked. Merchants can integrate the SDK to receive USDC payments immediately. The protocol executes an atomic 99% / 1% split without centralized custody.
             </p>
             <div className="flex items-center gap-2 text-[#00ff88] font-mono text-xs">
               <div className="w-1.5 h-1.5 rounded-full bg-[#00ff88]" />
@@ -196,9 +196,9 @@ const StatsBoard = () => {
             <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Database className="text-orange-500" size={24} />
             </div>
-            <h3 className="text-xl font-bold mb-4">测试网：即刻开始模拟</h3>
+            <h3 className="text-xl font-bold mb-4">Sandbox: Simulate Instantly</h3>
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
-              在资源管理器中切换至 Sandbox 模式，您可以使用我们的演示钱包进行一键模拟测试，实时观察 Agent 是如何处理 402 错误并自动完成链上支付的。
+              Switch to Sandbox mode in the Explorer to perform one-click simulations with our faucet wallet. Observe how Agents handle 402 errors and complete on-chain payments in real-time.
             </p>
             <div className="flex items-center gap-2 text-orange-500 font-mono text-xs">
               <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
