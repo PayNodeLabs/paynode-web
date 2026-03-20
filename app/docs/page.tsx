@@ -3,28 +3,28 @@ import Link from 'next/link';
 
 const DOCS_SECTIONS = [
   {
-    title: "Protocol (x402)",
+    title: "The x402 Protocol",
     description: "Deep dive into the stateless HTTP 402 handshake and on-chain settlement logic.",
     link: "/docs/protocol",
     icon: "📜"
   },
   {
-    title: "SDK - JavaScript",
-    description: "Integrate PayNode into your Node.js or browser-based AI agents.",
-    link: "/docs/sdk-js",
+    title: "Architecture Guide",
+    description: "Understand the high-level architecture: Router, Merchant, and AI Agents.",
+    link: "/docs/architecture",
+    icon: "🏗️"
+  },
+  {
+    title: "Developer Setup",
+    description: "Build your local environment and deploy your first PayNode node.",
+    link: "/docs/setup",
+    icon: "🛠️"
+  },
+  {
+    title: "SDKs & Integration",
+    description: "How to use our Python and JS SDKs to empower your AI agents.",
+    link: "/docs/protocol", // Reusing protocol for now or create a specific one
     icon: "📦"
-  },
-  {
-    title: "SDK - Python",
-    description: "The official Python SDK for autonomous agentic payments on Base.",
-    link: "/docs/sdk-python",
-    icon: "🐍"
-  },
-  {
-    title: "Smart Contracts",
-    description: "Router addresses, ABIs, and Base L2 deployment details.",
-    link: "/docs/contracts",
-    icon: "⛓️"
   }
 ];
 
@@ -37,17 +37,17 @@ export default function DocsPage() {
         <div className="flex justify-between items-center mb-12 border-b border-[#00FF41]/30 pb-4">
           <h1 className="text-3xl font-bold tracking-tighter uppercase">
             <span className="bg-[#00FF41] text-black px-2 mr-2">PAYNODE</span> 
-            DOCUMENTATION
+            DOCS_HUB
           </h1>
           <Link href="/pom" className="text-xs hover:underline opacity-70">
-            [ BACK TO EXPLORER ]
+            [ EXIT_TO_EXPLORER ]
           </Link>
         </div>
 
         {/* Hero */}
         <div className="mb-16">
-          <p className="text-xl leading-relaxed opacity-90 italic">
-            "Enabling AI agents to pay and get paid, autonomously, securely, and statelessly."
+          <p className="text-xl leading-relaxed opacity-90 italic border-l-4 border-[#00FF41] pl-6 py-2">
+            "The infrastructure for the agentic economy."
           </p>
         </div>
 
@@ -57,22 +57,29 @@ export default function DocsPage() {
             <Link 
               key={idx} 
               href={section.link}
-              className="group border border-[#00FF41]/20 p-6 hover:bg-[#00FF41]/5 transition-all hover:border-[#00FF41]/50 cursor-pointer"
+              className="group border border-[#00FF41]/20 p-6 hover:bg-[#00FF41]/5 transition-all hover:border-[#00FF41]/50 cursor-pointer relative overflow-hidden"
             >
-              <div className="text-3xl mb-4">{section.icon}</div>
+              {/* Decorative Matrix Scan Line (CSS Animation) */}
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-[#00FF41]/30 -translate-y-full group-hover:translate-y-[200px] transition-all duration-1000"></div>
+              
+              <div className="text-3xl mb-4 grayscale group-hover:grayscale-0 transition-all">{section.icon}</div>
               <h2 className="text-xl font-bold mb-2 group-hover:text-white transition-colors uppercase tracking-widest">
                 {section.title}
               </h2>
-              <p className="text-sm opacity-60 leading-relaxed">
+              <p className="text-[11px] opacity-60 leading-relaxed uppercase">
                 {section.description}
               </p>
             </Link>
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="mt-16 pt-8 border-t border-[#00FF41]/10 text-center opacity-40 text-xs">
-          PAYNODE LABS © 2026 | BUILT FOR THE AGENTIC WEB3
+        {/* Manual Footer */}
+        <div className="mt-16 pt-8 border-t border-[#00FF41]/10 flex justify-between items-center opacity-40 text-[10px] uppercase tracking-widest">
+          <div>© 2026 PAYNODE_LABS</div>
+          <div className="flex gap-6">
+            <Link href="https://github.com/PayNodeLabs" className="hover:text-[#00FF41]">GITHUB</Link>
+            <Link href="https://x.com" className="hover:text-[#00FF41]">TWITTER</Link>
+          </div>
         </div>
       </div>
     </div>
