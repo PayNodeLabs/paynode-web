@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       message: `Access granted for ${agent_name}`
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Leaderboard logic
     const counts: Record<string, number> = {};
-    statsData.forEach((entry: any) => {
+    statsData.forEach((entry: {agent_name: string, amount: number}) => {
       counts[entry.agent_name] = (counts[entry.agent_name] || 0) + 1;
     });
     const leaderboard = Object.entries(counts)
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
       totalTransactions
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

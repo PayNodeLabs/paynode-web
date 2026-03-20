@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   Terminal, 
-  ShieldCheck, 
   Zap, 
-  Activity, 
   Code2, 
   ExternalLink,
   ChevronRight,
@@ -108,7 +106,7 @@ const Simulator = () => {
             Experience x402 in Seconds.
           </h2>
           <p className="text-gray-400 mb-8 leading-relaxed">
-            AI agents don't have credit cards. PayNode turns standard HTTP 402 errors into deterministic USDC payments. 
+            AI agents don&apos;t have credit cards. PayNode turns standard HTTP 402 errors into deterministic USDC payments. 
             Try the simulated payment flow without spending a cent.
           </p>
           <div className="flex flex-col gap-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { 
   Activity, 
   ShieldCheck, 
@@ -10,7 +11,6 @@ import {
   Database, 
   Globe,
   Terminal as TerminalIcon,
-  ChevronRight,
   TrendingUp,
   Cpu
 } from "lucide-react";
@@ -74,8 +74,6 @@ export default function POMExplorer() {
         },
         (payload) => {
           console.log('Realtime change received!', payload);
-          // When a new tx comes in, we can either re-fetch aggregates or manually update state
-          // For consistency in leaderboard/totals, a quick re-fetch is most reliable
           fetchData();
         }
       )
@@ -84,6 +82,7 @@ export default function POMExplorer() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMainnet]);
 
   useEffect(() => {
@@ -129,7 +128,6 @@ export default function POMExplorer() {
         addLog(`SUCCESS: Matrix access granted to ${agentName}.`);
         setAgentName("");
         setCooldown(30);
-        // fetchData(); // No need! Realtime will catch the INSERT and trigger this automatically
       } else if (res.status === 429 && retryCount < 3) {
         addLog(`SYSTEM: Network congested. Retrying... (Nonce Collision avoidance)`);
         await new Promise(r => setTimeout(r, 2000 * (retryCount + 1))); 
@@ -150,9 +148,9 @@ export default function POMExplorer() {
       
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
         <div>
-          <a href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-[#00ff88] transition-colors mb-4 text-sm group">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-[#00ff88] transition-colors mb-4 text-sm group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Dashboard
-          </a>
+          </Link>
           <h1 className="text-4xl font-bold tracking-tight uppercase flex items-center gap-3">
             <TrendingUp className="text-[#00ff88]" /> PayNode_Explorer
             <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded border border-[#00ff88]/20 align-middle ml-2">v1.0-LIVE</span>
@@ -229,7 +227,7 @@ export default function POMExplorer() {
                     placeholder="Enter Agent Identity"
                     className="w-full bg-black/50 border border-white/10 p-4 rounded-xl text-sm focus:border-orange-500/50 outline-none transition-all"
                     value={agentName}
-                    onChange={(e) => setAgentName(e.target.value)}
+                    onChange={(evt) => setAgentName(evt.target.value)}
                     disabled={isExecuting || cooldown > 0}
                   />
                   <button 

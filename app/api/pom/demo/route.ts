@@ -5,7 +5,7 @@ import { BASE_SEPOLIA_CONFIG } from '../config';
 export const maxDuration = 15;
 
 // --- 🛡️ Global Atomic Queue & Nonce Manager ---
-let executionQueue: Promise<any> = Promise.resolve();
+let executionQueue: Promise<unknown> = Promise.resolve();
 let nextNonce: number | null = null;
 
 const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY || "0x47e171e0ec23374952d35540a36922055655a0ce0a6b1612a322e859392e4627";
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = await executeTransaction(agent_name, baseUrl);
         resolve(NextResponse.json(result));
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("[Demo_API_Fatal]:", e.message);
         const errStr = e.message.toLowerCase();
         
