@@ -60,9 +60,14 @@ const Hero = () => (
       >
         <Zap size={18} fill="currentColor" /> Run Simulator
       </button>
-      <button className="px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-all">
+      <a 
+        href="https://docs.paynode.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-all flex items-center justify-center"
+      >
         Read the Docs
-      </button>
+      </a>
     </div>
   </section>
 );
