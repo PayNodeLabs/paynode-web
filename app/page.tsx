@@ -50,16 +50,18 @@ export default function Home() {
             <span className="ml-4 text-xs text-gray-500 font-mono">server.js</span>
           </div>
           <pre className="text-sm md:text-base font-mono text-gray-300 overflow-x-auto">
-            <code><span className="text-purple-400">import</span> {'{ PayNode }'} <span className="text-purple-400">from</span> <span className="text-green-400">'@paynode/sdk'</span>;
-
-              <span className="text-gray-500">// Initialize your payment node (non-custodial)</span>
-              <span className="text-blue-400">const</span> node = <span className="text-purple-400">new</span> PayNode({'{'} wallet: <span className="text-green-400">'0xYourAddress...'</span> {'}'});
-
-              <span className="text-gray-500">// AI pays 0.05 USDC to access your API</span>
-              app.<span className="text-blue-300">use</span>(<span className="text-green-400">'/api/data'</span>, node.<span className="text-blue-300">x402_gate</span>({'{'}
+            <code>
+              <span className="text-purple-400">import</span> {'{ PayNode }'} <span className="text-purple-400">from</span> <span className="text-green-400">&apos;@paynode/sdk&apos;</span>;
+              {`\n\n`}
+              <span className="text-gray-500">{`// Initialize your payment node (non-custodial)`}</span>{`\n`}
+              <span className="text-blue-400">const</span> node = <span className="text-purple-400">new</span> PayNode({`{`} wallet: <span className="text-green-400">&apos;0xYourAddress...&apos;</span> {`}`});
+              {`\n\n`}
+              <span className="text-gray-500">{`// AI pays 0.05 USDC to access your API`}</span>{`\n`}
+              app.<span className="text-blue-300">use</span>(<span className="text-green-400">&apos;/api/data&apos;</span>, node.<span className="text-blue-300">x402_gate</span>({`{`}
               price: <span className="text-orange-400">0.05</span>,
-              currency: <span className="text-green-400">'USDC'</span>
-              {'}'}));</code>
+              currency: <span className="text-green-400">&apos;USDC&apos;</span>
+              {`}`}));
+            </code>
           </pre>
         </div>
 
