@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
+@theme {
+  --color-accent: #00ff88;
+  --color-background: #050505;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050505;
+  --foreground: #ededed;
+  --accent: #00ff88; /* 荧光绿 */
+  --accent-soft: rgba(0, 255, 136, 0.1);
+  --grid-color: rgba(255, 255, 255, 0.03);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ----------------------------------------------
+   🟢 极客专用：自定义霓虹滚动条 (Custom Scrollbar)
+   适配 Webkit 浏览器 (Chrome, Edge, Safari)
+---------------------------------------------- */
+::-webkit-scrollbar {
+  width: 6px; /* 极细宽度 */
+  height: 6px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+::-webkit-scrollbar-track {
+  background: #050505; /* 纯黑背景轨道 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.2); /* 默认半透明荧光绿 */
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00ff88; /* 悬停时变为高亮荧光绿 */
+  box-shadow: 0 0 10px #00ff88; /* 悬停时带一点发光 */
+}
+
+/* Firefox 支持 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 136, 0.2) #050505;
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* 极客网格背景 */
+.bg-grid {
+  background-image: 
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* 霓虹发光文字 */
+.text-glow {
+  text-shadow: 0 0 10px var(--accent-soft), 0 0 20px var(--accent-soft);
+}
+
+/* 荧光按钮 */
+@layer components {
+  .btn-glow {
+    @apply transition-all duration-300;
+    box-shadow: 0 0 0px var(--accent);
+  }
+  .btn-glow:hover {
+    box-shadow: 0 0 20px var(--accent-soft);
+    transform: translateY(-2px);
+  }
+}
+
+/* 模拟器终端样式 */
+.terminal-window {
+  background: rgba(10, 10, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+@layer utilities {
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
