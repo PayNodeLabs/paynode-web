@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNetworkConfig } from './config';
 import { supabase } from './lib/supabase';
+import { ethers } from 'ethers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,6 +31,20 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
+    // 🛡️ SECURITY FIX: Verify on-chain transaction receipt before logging
+    const provider = new ethers.JsonRpcProvider(config.rpcUrl);
+    try {
+      const txReceipt = await provider.getTransactionReceipt(receipt);
+      if (!txReceipt || txReceipt.status !== 1) {
+        return NextResponse.json({ error: "Invalid or reverted transaction receipt" }, { status: 400 });
+      }
+      if (txReceipt.to?.toLowerCase() !== config.routerAddress.toLowerCase()) {
+        return NextResponse.json({ error: "Transaction was not directed to the PayNode Router" }, { status: 400 });
+      }
+    } catch (e: any) {
+      return NextResponse.json({ error: "On-chain verification failed: " + e.message }, { status: 500 });
+    }
+
     // 2. Persistent Storage in Supabase
     const { error: insertError } = await supabase
       .from('transactions')
@@ -53,8 +68,8 @@ export async function POST(req: NextRequest) {
       message: `Access granted for ${agent_name}`
     });
 
-  } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || String(error) }, { status: 500 });
   }
 }
 
@@ -83,9 +98,13 @@ export async function GET(req: NextRequest) {
     if (statsError) throw statsError;
 
     const totalTransactions = statsData.length;
-    const totalVolume = statsData.reduce((acc, curr) => acc + Number(curr.amount), 0);
-    const merchantRevenue = (totalVolume * 0.99).toFixed(4);
-    const protocolFees = (totalVolume * 0.01).toFixed(6);
+    // Fix: Use BigInt (cents / 6-decimals basis for precision)
+    const amountInMicro = statsData.reduce((acc, curr) => acc + BigInt(Math.round(Number(curr.amount) * 1e6)), BigInt(0));
+    const merchantMicro = amountInMicro * BigInt(99) / BigInt(100);
+    const protocolMicro = amountInMicro * BigInt(1) / BigInt(100);
+
+    const merchantRevenue = (Number(merchantMicro) / 1e6).toFixed(4);
+    const protocolFees = (Number(protocolMicro) / 1e6).toFixed(6);
 
     // 3. Leaderboard logic
     const counts: Record<string, number> = {};
@@ -109,7 +128,7 @@ export async function GET(req: NextRequest) {
       totalTransactions
     });
 
-  } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || String(error) }, { status: 500 });
   }
 }
