@@ -47,16 +47,18 @@ export default function POMExplorer() {
   const [isLoading, setIsLoading] = useState(true);
 
   // 1. Initial Data Fetch
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
-      setIsLoading(true);
-      setData({
-        feed: [],
-        leaderboard: [],
-        merchantRevenue: "0.0000",
-        protocolFees: "0.000000",
-        totalTransactions: 0
-      });
+      if (!silent) {
+        setIsLoading(true);
+        setData({
+          feed: [],
+          leaderboard: [],
+          merchantRevenue: "0.0000",
+          protocolFees: "0.000000",
+          totalTransactions: 0
+        });
+      }
       const network = isMainnet ? "mainnet" : "testnet";
       const res = await fetch(`/api/pom?network=${network}`);
       const json = await res.json();
@@ -64,7 +66,7 @@ export default function POMExplorer() {
     } catch (e) {
       console.error("Fetch error:", e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -85,21 +87,8 @@ export default function POMExplorer() {
         },
         (payload) => {
           console.log('Realtime change received!', payload);
-          // 🛡️ FIX: Prepend the new event instead of performing a heavy full database query
-          setData((prev) => {
-            const newTx = payload.new;
-            const newFeedItem: FeedItem = {
-              agent: newTx.agent_name,
-              txHash: newTx.tx_hash,
-              time: new Date(newTx.created_at).toLocaleTimeString(),
-              isMainnet: newTx.network === 'mainnet'
-            };
-            return {
-              ...prev,
-              feed: [newFeedItem, ...prev.feed].slice(0, 50),
-              totalTransactions: prev.totalTransactions + 1
-            };
-          });
+          // Sync all stats from backend to ensure consistency (Revenue, Leaderboard, etc)
+          fetchData(true);
         }
       )
       .subscribe();
@@ -153,6 +142,8 @@ export default function POMExplorer() {
         addLog(`SUCCESS: Matrix access granted to ${agentName}.`);
         setAgentName("");
         setCooldown(30);
+        // Refresh dashboard immediately after demo success
+        fetchData(true);
       } else if (res.status === 429 && retryCount < 3) {
         addLog(`SYSTEM: Network congested. Retrying... (Nonce Collision avoidance)`);
         await new Promise(r => setTimeout(r, 2000 * (retryCount + 1))); 
