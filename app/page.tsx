@@ -26,7 +26,7 @@ const Navbar = () => (
       <a href="https://docs.paynode.dev" className="hover:text-[#00ff88] transition-colors flex items-center gap-1">Docs <ExternalLink size={14} /></a>
     </div>
     <button className="text-xs bg-white/5 border border-white/10 px-4 py-2 rounded-full hover:bg-white/10 transition-all font-mono">
-      0xA88B...2bb
+      0x92e2...b200
     </button>
   </nav>
 );
@@ -85,7 +85,7 @@ const Simulator = () => {
     const steps = [
       "📡 Intercepting outgoing API request...",
       "HTTP/1.1 402 Payment Required",
-      "🔍 Resolving PayNode-Router-Address: 0xA88B...2bb",
+      "🔍 Resolving PayNode-Router-Address: 0x92e2...b200",
       "🔐 Agent checking wallet allowance (USDC/Base)...",
       `💸 Initiating POM Tx for ${agentName}...`,
       "⏳ Mining on Base L2...",
@@ -177,7 +177,7 @@ const StatsBoard = () => {
               Enter Explorer <ChevronRight size={20} />
             </a>
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 font-mono text-[10px] text-gray-500 text-center">
-              Router: 0xA88B5eaD188De39c015AC51F45E1B41D3d95f2bb
+              Router: 0x92e20164FC457a2aC35f53D06268168e6352b200
             </div>
           </div>
         </div>
