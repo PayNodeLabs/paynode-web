@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
       try {
         const result = await executeTransaction(agent_name, baseUrl);
         resolve(NextResponse.json(result));
-      } catch (e: unknown) {
+      } catch (e: any) {
         console.error("[Demo_API_Fatal]:", e.message);
-        const errStr = e.message.toLowerCase();
+        const errStr = e.message?.toLowerCase() || "";
         
         // Reset nonce on error to force re-sync next time
         nextNonce = null;

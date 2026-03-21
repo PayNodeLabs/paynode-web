@@ -4,6 +4,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PayNode | The Agent-to-Machine Payment Protocol",
   description: "Non-custodial, stateless HTTP 402 middleware for AI agents on Base L2.",
+  openGraph: {
+    title: "PayNode | The Agent-to-Machine Payment Protocol",
+    description: "Non-custodial, stateless HTTP 402 middleware for AI agents on Base L2.",
+    url: "https://paynode.io",
+    siteName: "PayNode",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PayNode | POM Explorer",
+    description: "Real-time Agent-to-Machine payment settlements on Base L2.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({

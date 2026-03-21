@@ -44,16 +44,27 @@ export default function POMExplorer() {
     protocolFees: "0.000000",
     totalTransactions: 0
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   // 1. Initial Data Fetch
   const fetchData = async () => {
     try {
+      setIsLoading(true);
+      setData({
+        feed: [],
+        leaderboard: [],
+        merchantRevenue: "0.0000",
+        protocolFees: "0.000000",
+        totalTransactions: 0
+      });
       const network = isMainnet ? "mainnet" : "testnet";
       const res = await fetch(`/api/pom?network=${network}`);
       const json = await res.json();
       setData(json);
     } catch (e) {
       console.error("Fetch error:", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -74,7 +85,21 @@ export default function POMExplorer() {
         },
         (payload) => {
           console.log('Realtime change received!', payload);
-          fetchData();
+          // 🛡️ FIX: Prepend the new event instead of performing a heavy full database query
+          setData((prev) => {
+            const newTx = payload.new;
+            const newFeedItem: FeedItem = {
+              agent: newTx.agent_name,
+              txHash: newTx.tx_hash,
+              time: new Date(newTx.created_at).toLocaleTimeString(),
+              isMainnet: newTx.network === 'mainnet'
+            };
+            return {
+              ...prev,
+              feed: [newFeedItem, ...prev.feed].slice(0, 50),
+              totalTransactions: prev.totalTransactions + 1
+            };
+          });
         }
       )
       .subscribe();
@@ -180,7 +205,9 @@ export default function POMExplorer() {
                 <Zap size={48} className="text-[#00ff88]" />
              </div>
              <span className="text-xs uppercase text-gray-500 block mb-2 font-mono">Net Volume (99%)</span>
-             <span className="text-4xl font-bold tracking-tighter text-white">${data.merchantRevenue}</span>
+             <span className="text-4xl font-bold tracking-tighter text-white">
+                {isLoading ? <span className="animate-pulse">---</span> : `$${data.merchantRevenue}`}
+             </span>
           </div>
 
           <div className="p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-blue-500/20 transition-all group relative overflow-hidden">
@@ -188,7 +215,9 @@ export default function POMExplorer() {
                 <ShieldCheck size={48} className="text-blue-500" />
              </div>
              <span className="text-xs uppercase text-gray-500 block mb-2 font-mono text-blue-400">Protocol Fees (1%)</span>
-             <span className="text-4xl font-bold tracking-tighter text-white">${data.protocolFees}</span>
+             <span className="text-4xl font-bold tracking-tighter text-white">
+                {isLoading ? <span className="animate-pulse">---</span> : `$${data.protocolFees}`}
+             </span>
           </div>
 
           <div className="p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-purple-500/20 transition-all group relative overflow-hidden">
@@ -196,7 +225,9 @@ export default function POMExplorer() {
                 <Activity size={48} className="text-purple-500" />
              </div>
              <span className="text-xs uppercase text-gray-500 block mb-2 font-mono">Total Txs</span>
-             <span className="text-4xl font-bold tracking-tighter text-white">{data.totalTransactions}</span>
+             <span className="text-4xl font-bold tracking-tighter text-white">
+                {isLoading ? <span className="animate-pulse">---</span> : data.totalTransactions}
+             </span>
           </div>
 
           <div className="p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-[#00ff88]/20 transition-all group relative overflow-hidden">
@@ -204,8 +235,8 @@ export default function POMExplorer() {
                 <Cpu size={48} className="text-[#00ff88]" />
              </div>
              <span className="text-xs uppercase text-gray-500 block mb-2 font-mono">Status</span>
-             <div className="flex items-center gap-2 text-[#00ff88] font-bold">
-                <RefreshCw size={14} className="animate-spin" /> LIVE_SYNC
+             <div className={`flex items-center gap-2 font-bold ${isLoading ? 'text-orange-500' : 'text-[#00ff88]'}`}>
+                <RefreshCw size={14} className="animate-spin" /> {isLoading ? "SWITCHING_NETWORK..." : "LIVE_SYNC"}
              </div>
           </div>
         </div>
@@ -256,8 +287,13 @@ export default function POMExplorer() {
                 <Zap size={18} className="text-[#00ff88]" /> Top Agents
               </h3>
               <div className="space-y-4">
-                {data.leaderboard.length === 0 && <div className="text-gray-600 italic text-sm">No agent activity yet.</div>}
-                {data.leaderboard.map(([name, count], i) => (
+                {isLoading && (
+                  <div className="flex justify-center p-4">
+                    <RefreshCw className="animate-spin text-[#00ff88]" size={16} />
+                  </div>
+                )}
+                {!isLoading && data.leaderboard.length === 0 && <div className="text-gray-600 italic text-sm">No agent activity yet.</div>}
+                {!isLoading && data.leaderboard.map(([name, count], i) => (
                   <div key={name} className="flex justify-between items-center p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all">
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-gray-600 font-mono">0{i+1}</span>
@@ -282,8 +318,13 @@ export default function POMExplorer() {
                 </div>
                 
                 <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
-                   {data.feed.length === 0 && <div className="p-12 text-center text-gray-600 italic">Scanning chain for events...</div>}
-                   {data.feed.map((tx, i) => (
+                   {isLoading && (
+                      <div className="p-12 text-center text-[#00ff88] italic flex justify-center items-center gap-2">
+                        <RefreshCw className="animate-spin" size={16} /> Connecting to {isMainnet ? 'Mainnet' : 'Sandbox'} nodes...
+                      </div>
+                   )}
+                   {!isLoading && data.feed.length === 0 && <div className="p-12 text-center text-gray-600 italic">Scanning chain for events...</div>}
+                   {!isLoading && data.feed.map((tx, i) => (
                       <div key={tx.txHash + i} className="p-6 hover:bg-white/[0.02] transition-colors group">
                         <div className="flex justify-between items-start mb-4">
                           <div>
