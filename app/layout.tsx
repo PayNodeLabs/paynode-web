@@ -4,6 +4,17 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PayNode | The Agent-to-Machine Payment Protocol",
   description: "Non-custodial, stateless HTTP 402 middleware for AI agents on Base L2.",
+  icons: {
+    icon: [
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
+    ],
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "PayNode | The Agent-to-Machine Payment Protocol",
     description: "Non-custodial, stateless HTTP 402 middleware for AI agents on Base L2.",
