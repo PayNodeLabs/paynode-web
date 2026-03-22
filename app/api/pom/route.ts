@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNetworkConfig } from './config';
 import { supabase } from './lib/supabase';
-import { Interface } from 'ethers';
 
-const PAYNODE_ABI = [
-  "event PaymentReceived(bytes32 indexed orderId, address indexed merchant, address indexed payer, address token, uint256 amount, uint256 fee, uint256 chainId)"
-];
-const iface = new Interface(PAYNODE_ABI);
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,45 +36,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 🛡️ SECURITY FIX 2: Deep On-Chain Verification
-    const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(config.rpcUrls[0]);
-    const txReceipt = await provider.getTransactionReceipt(receipt);
+    const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
+    const verifier = new PayNodeVerifier({
+      rpcUrls: config.rpcUrls,
+      chainId: config.chainId
+    });
 
-    if (!txReceipt || txReceipt.status !== 1) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: Transaction not found or reverted." }, { status: 400 });
-    }
+    const result = await verifier.verifyPayment(receipt, {
+      merchantAddress: config.treasury,
+      tokenAddress: config.usdcAddress,
+      amount: BigInt(10000), 
+      orderId: orderId || `order_${Date.now()}`
+    });
 
-    let paymentLog: any = null;
-    for (const log of txReceipt.logs) {
-      try {
-        const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data });
-        if (parsed && parsed.name === 'PaymentReceived') {
-          paymentLog = parsed;
-          break;
-        }
-      } catch (e) { continue; }
-    }
-
-    if (!paymentLog) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: No valid PaymentReceived event found." }, { status: 400 });
-    }
-
-    const args = paymentLog.args;
-    // Verify Merchant (Must be our treasury)
-    if (args.merchant.toLowerCase() !== config.treasury.toLowerCase()) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: Merchant mismatch." }, { status: 400 });
-    }
-    // Verify Token (Must be official USDC)
-    if (args.token.toLowerCase() !== config.usdcAddress.toLowerCase()) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: Token mismatch." }, { status: 400 });
-    }
-    // Verify Amount (Min 0.01 USDC)
-    if (BigInt(args.amount) < BigInt(10000)) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: Amount too low." }, { status: 400 });
-    }
-    // Verify Network
-    if (Number(args.chainId) !== config.chainId) {
-      return NextResponse.json({ error: "INVALID_RECEIPT: ChainId mismatch." }, { status: 400 });
+    if (!result.isValid) {
+      return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
     }
 
     // 2. Persistent Storage (Verified Data Only)
@@ -88,7 +59,7 @@ export async function POST(req: NextRequest) {
       .insert({
         agent_name: agent_name || `Agent-${Math.floor(Math.random() * 1000)}`,
         tx_hash: receipt,
-        amount: Number(args.amount) / 1e6,
+        amount: 10000 / 1e6,
         merchant_address: config.treasury,
         network: isMainnet ? 'mainnet' : 'testnet',
         order_id: orderId || `order_${Date.now()}`
