@@ -320,7 +320,14 @@ export default function POMExplorer() {
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <div className="text-xs text-[#00ff88] font-bold mb-1">{tx.agent}</div>
-                            <div className="text-[10px] font-mono text-gray-500 break-all">{tx.txHash}</div>
+                            <a 
+                              href={`https://${tx.isMainnet ? '' : 'sepolia.'}basescan.org/tx/${tx.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-mono text-gray-500 break-all hover:text-[#00ff88] transition-colors decoration-dotted hover:underline"
+                            >
+                              {tx.txHash}
+                            </a>
                           </div>
                           <div className="text-[10px] text-gray-600 font-mono">{tx.time}</div>
                         </div>
