@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "INVALID_RECEIPT: Token mismatch." }, { status: 400 });
     }
     // Verify Amount (Min 0.01 USDC)
-    if (BigInt(args.amount) < 10000n) {
+    if (BigInt(args.amount) < BigInt(10000)) {
       return NextResponse.json({ error: "INVALID_RECEIPT: Amount too low." }, { status: 400 });
     }
     // Verify Network
@@ -149,8 +149,7 @@ export async function GET(req: NextRequest) {
     
     const leaderboard = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([agent, count]) => ({ agent, count }));
+      .slice(0, 5);
 
     return NextResponse.json({
       feed: feed.map(f => ({
