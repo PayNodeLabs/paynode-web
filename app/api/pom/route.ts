@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
     const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
     const verifier = new PayNodeVerifier({
       rpcUrls: config.rpcUrls,
-      chainId: config.chainId
+      chainId: config.chainId,
+      contractAddress: config.routerAddress
     });
 
     const result = await verifier.verifyPayment(receipt, {
