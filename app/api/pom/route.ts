@@ -8,14 +8,14 @@ export async function POST(req: NextRequest) {
     const { agent_name } = await req.json();
     const searchParams = req.nextUrl.searchParams;
     const isMainnet = searchParams.get('network') === 'mainnet';
-    
+
     const config = getNetworkConfig(isMainnet);
     const receipt = req.headers.get('x-paynode-receipt');
     const orderId = req.headers.get('x-paynode-order-id');
 
     if (!receipt) {
       // 1. Handshake: Return Protocol Headers (v1.3 standard)
-      const response = NextResponse.json({ 
+      const response = NextResponse.json({
         status: "PAYMENT_REQUIRED",
         message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE"
       }, { status: 402 });
@@ -25,29 +25,40 @@ export async function POST(req: NextRequest) {
       response.headers.set('x-paynode-amount', "10000"); // 0.01 USDC
       response.headers.set('x-paynode-token-address', config.usdcAddress);
       response.headers.set('x-paynode-order-id', `order_${Date.now()}`);
-      
+      response.headers.set('x-paynode-currency', 'USDC');
+      response.headers.set('x-paynode-chain-id', config.chainId.toString());
+
       return response;
     }
 
-    // 🛡️ SECURITY FIX 1: Idempotency (Prevent Replay Attacks)
-    const { data: existing } = await supabase.from('transactions').select('id').eq('tx_hash', receipt).maybeSingle();
-    if (existing) {
-      return NextResponse.json({ error: "DUPLICATE_TRANSACTION: This receipt has already been consumed." }, { status: 400 });
-    }
-
-    // 🛡️ SECURITY FIX 2: Deep On-Chain Verification
+    // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
     const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
+    
+    const supabaseStore = {
+      async checkAndSet(txHash: string, ttlSeconds: number): Promise<boolean> {
+        // Adapter for custom Idempotency Store logic using Supabase
+        const { data: existing } = await supabase.from('transactions').select('id').eq('tx_hash', txHash).maybeSingle();
+        return !existing;
+      }
+    };
+
     const verifier = new PayNodeVerifier({
       rpcUrls: config.rpcUrls,
       chainId: config.chainId,
-      contractAddress: config.routerAddress
+      contractAddress: config.routerAddress,
+      store: supabaseStore
     });
 
+    if (!orderId) {
+      return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'x-paynode-order-id' in retry header." }, { status: 400 });
+    }
+    
     const result = await verifier.verifyPayment(receipt, {
+      // 💡 In this Demo, the Doodle Wall's receiving wallet is the protocol treasury. In an actual merchant system, this should be the merchant's own receiving asset wallet address.
       merchantAddress: config.treasury,
       tokenAddress: config.usdcAddress,
-      amount: BigInt(10000), 
-      orderId: orderId || `order_${Date.now()}`
+      amount: BigInt(10000),
+      orderId: orderId
     });
 
     if (!result.isValid) {
@@ -97,31 +108,37 @@ export async function GET(req: NextRequest) {
 
     if (feedError) throw feedError;
 
-    const { data: statsData, error: statsError } = await supabase
-      .from('transactions')
-      .select('amount, agent_name')
-      .eq('network', network);
+    // ⚡️ OPTIMIZATION: Get aggregated stats directly from Database via RPC
+    const { data: stats, error: statsError } = await supabase
+      .rpc('get_pom_stats', { p_network: network });
 
-    if (statsError) throw statsError;
+    if (statsError) {
+      console.warn("[RPC_Fallback]: get_pom_stats not found, falling back to manual aggregation.");
+      // Fallback to manual only if RPC is not yet created
+      const { data: statsData } = await supabase
+        .from('transactions')
+        .select('amount, agent_name')
+        .eq('network', network);
+      
+      const counts: Record<string, number> = {};
+      statsData?.forEach(e => counts[e.agent_name] = (counts[e.agent_name] || 0) + 1);
+      
+      const leaderboard = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 20);
+      const totalAmt = statsData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
 
-    const totalTransactions = statsData.length;
-    const amountInMicro = statsData.reduce((acc, curr) => acc + BigInt(Math.round(Number(curr.amount) * 1e6)), BigInt(0));
-    
-    // Accurate 99/1 split display
-    const merchantMicro = amountInMicro * BigInt(99) / BigInt(100);
-    const protocolMicro = amountInMicro * BigInt(1) / BigInt(100);
+      return NextResponse.json({
+        feed: feed.map(f => ({ agent: f.agent_name, txHash: f.tx_hash, time: new Date(f.created_at).toLocaleTimeString(), isMainnet: f.network === 'mainnet' })),
+        leaderboard,
+        merchantRevenue: (totalAmt * 0.99).toFixed(4),
+        protocolFees: (totalAmt * 0.01).toFixed(6),
+        totalTransactions: statsData?.length || 0
+      });
+    }
 
-    const merchantRevenue = (Number(merchantMicro) / 1e6).toFixed(4);
-    const protocolFees = (Number(protocolMicro) / 1e6).toFixed(6);
-
-    const counts: Record<string, number> = {};
-    statsData.forEach((entry: {agent_name: string, amount: number}) => {
-      counts[entry.agent_name] = (counts[entry.agent_name] || 0) + 1;
-    });
-    
-    const leaderboard = Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+    // 🚀 High-performance path using DB-aggregated data
+    const amountInMicro = BigInt(Math.round(Number(stats.total_amount) * 1e6));
+    const merchantRevenue = (Number(amountInMicro * BigInt(99) / BigInt(100)) / 1e6).toFixed(4);
+    const protocolFees = (Number(amountInMicro * BigInt(1) / BigInt(100)) / 1e6).toFixed(6);
 
     return NextResponse.json({
       feed: feed.map(f => ({
@@ -130,10 +147,10 @@ export async function GET(req: NextRequest) {
         time: new Date(f.created_at).toLocaleTimeString(),
         isMainnet: f.network === 'mainnet'
       })),
-      leaderboard,
+      leaderboard: stats.leaderboard.map((a: any) => [a.agent_name, a.tx_count]),
       merchantRevenue,
       protocolFees,
-      totalTransactions
+      totalTransactions: stats.total_transactions
     });
 
   } catch (error: any) {

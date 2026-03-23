@@ -9,7 +9,7 @@ let executionQueue: Promise<unknown> = Promise.resolve();
 let nextNonce: number | null = null;
 
 const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY || "0x47e171e0ec23374952d35540a36922055655a0ce0a6b1612a322e859392e4627";
-const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrl;
+const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrls[0];
 
 const ROUTER_ABI = ["function pay(address token, address merchant, uint256 amount, bytes32 orderId) public"];
 const ERC20_ABI = [
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       } catch (e: any) {
         console.error("[Demo_API_Fatal]:", e.message);
         const errStr = e.message?.toLowerCase() || "";
-        
+
         // Reset nonce on error to force re-sync next time
         nextNonce = null;
 
@@ -69,7 +69,7 @@ async function executeTransaction(agent_name: string, baseUrl: string) {
   // 4. Check Allowance
   const tokenContract = new ethers.Contract(token, ERC20_ABI, wallet);
   const currentAllowance = await tokenContract.allowance(wallet.address, contract);
-  
+
   if (currentAllowance < BigInt(amount)) {
     console.log(`[Demo] Approving with Nonce: ${nextNonce}`);
     const approveTx = await tokenContract.approve(contract, amount, { nonce: nextNonce++ });
@@ -79,7 +79,7 @@ async function executeTransaction(agent_name: string, baseUrl: string) {
   // 5. Execute Pay
   const router = new ethers.Contract(contract, ROUTER_ABI, wallet);
   const orderIdBytes = ethers.id(orderId);
-  
+
   console.log(`[Demo] Paying with Nonce: ${nextNonce}`);
   const payTx = await router.pay(token, merchant, amount, orderIdBytes, { nonce: nextNonce++ });
   const receipt = await payTx.wait();
