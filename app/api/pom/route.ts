@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
       response.headers.set('x-paynode-amount', "10000"); // 0.01 USDC
       response.headers.set('x-paynode-token-address', config.usdcAddress);
       response.headers.set('x-paynode-order-id', `order_${Date.now()}`);
+      response.headers.set('x-paynode-currency', 'USDC');
+      response.headers.set('x-paynode-chain-id', config.chainId.toString());
 
       return response;
     }

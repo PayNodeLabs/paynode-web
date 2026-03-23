@@ -296,10 +296,10 @@ const SDKShowcase = () => (
             express-js (Node.js)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`const { x402_gate } = require('@paynodelabs/sdk-js');
+            {`const { x402Gate } = require('@paynodelabs/sdk-js');
 
 // Drop-in middleware (Base Mainnet)
-app.get('/api/data', x402_gate({
+app.get('/api/data', x402Gate({
   merchantAddress: '0xYourWallet...',
   price: '1.00' // 1.00 USDC
 }), (req, res) => {
