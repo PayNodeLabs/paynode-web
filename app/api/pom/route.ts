@@ -45,11 +45,15 @@ export async function POST(req: NextRequest) {
       contractAddress: config.routerAddress
     });
 
+    if (!orderId) {
+      return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'x-paynode-order-id' in retry header." }, { status: 400 });
+    }
+    
     const result = await verifier.verifyPayment(receipt, {
       merchantAddress: config.treasury,
       tokenAddress: config.usdcAddress,
       amount: BigInt(10000),
-      orderId: orderId || `order_${Date.now()}`
+      orderId: orderId
     });
 
     if (!result.isValid) {

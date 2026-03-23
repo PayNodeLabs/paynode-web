@@ -362,21 +362,20 @@ export default function POMExplorer() {
                     const dynamicSize = Math.min(12, Math.max(5, 100 / len));
                     return (
                       <div key={i} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full text-center" style={{ zIndex: 50 }}>
-                          <motion.div
+                        <motion.div
                           key={`${name}-${count}-${kingTrigger}`} // RE-ANIMATE ON TRIGGER OR COUNT CHANGE
                           initial={{ scale: 1, filter: 'brightness(1) blur(0px)', rotate: -3, skewX: 0, zIndex: 50 }}
                           animate={{
-                            scale: [1, 6.0, 0.3, 1.5, 0.9, 1], // 巨量放大到 6 倍
+                            scale: [2, 2, 1, 1, 1, 1], // 巨量放大到 6 倍
                             filter: [
                               'brightness(1) blur(0px)',
-                              'brightness(5) blur(15px)', // 更强的闪烁
+                              'brightness(5) blur(15px)',
                               'brightness(0.4) blur(0px)',
                               'brightness(1.8) blur(0px)',
                               'brightness(0.9) blur(0px)',
                               'brightness(1) blur(0px)'
                             ],
-                            rotate: [-3, 0, 0, 15, -8, -3], // 6倍放大的瞬间(0.15-0.3)完全转正
-                            skewX: [0, 35, -25, 10, 0], // 更夸张的扭曲
+                            rotate: [20, 20, -3, -3, -3, -3],
                           }}
                           transition={{
                             duration: 0.9, // 稍微拉长一点点总时长，让 6 倍放大的过程更可观测
@@ -410,7 +409,7 @@ export default function POMExplorer() {
                           {!isPlaceholder && (
                             <>
                               <div
-                                className="absolute left-1/2 -translate-x-1/2 font-mono text-white/80 bg-black/80 backdrop-blur-md border border-[#00ff88]/30 whitespace-nowrap shadow-[0.4cqw_0.4cqw_0px_#00ff88] transition-all duration-500 group-hover/king:scale-110 group-hover/king:rotate-3 cursor-default flex items-center gap-1.5"
+                                className="absolute left-1/2 -translate-x-1/2 -rotate-2 font-mono text-white/80 bg-black/80 backdrop-blur-md border border-[#00ff88]/30 whitespace-nowrap shadow-[0.4cqw_0.4cqw_0px_#00ff88] transition-all duration-500 group-hover/king:scale-110 group-hover/king:rotate-3 cursor-default flex items-center gap-1.5"
                                 style={{
                                   bottom: '-4cqw',
                                   fontSize: '1cqw',
