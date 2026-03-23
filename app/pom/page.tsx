@@ -360,7 +360,7 @@ export default function POMExplorer() {
                             scale: [2, 2, 1, 1, 1, 1], // 巨量放大到 6 倍
                             filter: [
                               'brightness(1) blur(0px)',
-                              'brightness(5) blur(15px)',
+                              'brightness(2) blur(3px)',
                               'brightness(0.4) blur(0px)',
                               'brightness(1.8) blur(0px)',
                               'brightness(0.9) blur(0px)',

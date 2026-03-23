@@ -80,7 +80,7 @@ const Navbar = () => (
     </div>
     <div className="flex-1 flex justify-end">
       <button className="text-xs bg-white/5 border border-white/10 px-4 py-2 rounded-full hover:bg-white/10 transition-all font-mono">
-        0x92e2...b200
+        0x4A73...Ed63
       </button>
     </div>
   </nav>
@@ -140,12 +140,12 @@ const Simulator = () => {
     const steps = [
       "📡 Intercepting outgoing API request...",
       "HTTP/1.1 402 Payment Required",
-      "🔍 Resolving PayNode-Router-Address: 0x92e2...b200",
+      "🔍 Resolving PayNode-Router-Address: 0x4A73...Ed63",
       "🔐 Agent checking wallet allowance (USDC/Base)...",
-      `💸 Initiating POM Tx for ${agentName}...`,
+      `💸 Initiating PayNode Tx for ${agentName}...`,
       "⏳ Mining on Base L2...",
-      "✅ Proof-of-Management (POM) Generated.",
-      "🚀 Resubmitting request with X-POM-V1 header.",
+      "✅ Payment Confirmed (x-paynode-receipt generated).",
+      "🚀 Resubmitting request with x-paynode-receipt header.",
       "🎉 Access Granted: Welcome to the Matrix."
     ];
 
@@ -235,8 +235,8 @@ const StatsBoard = () => {
               Enter Explorer <ChevronRight size={20} />
             </a>
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 font-mono text-[12px] text-gray-500 flex items-center justify-between gap-4">
-              <span className="truncate">Router: 0x92e20164FC457a2aC35f53D06268168e6352b200</span>
-              <CopyButton text="0x92e20164FC457a2aC35f53D06268168e6352b200" />
+              <span className="truncate">Router: 0x4A73696ccF76E7381b044cB95127B3784369Ed63</span>
+              <CopyButton text="0x4A73696ccF76E7381b044cB95127B3784369Ed63" />
             </div>
           </div>
         </div>

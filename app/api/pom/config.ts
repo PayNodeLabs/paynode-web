@@ -2,7 +2,7 @@
 export const BASE_MAINNET_CONFIG = {
   chainId: 8453,
   rpcUrls: ["https://mainnet.base.org", "https://base.meowrpc.com", "https://1rpc.io/base"],
-  routerAddress: "0x92e20164FC457a2aC35f53D06268168e6352b200",
+  routerAddress: "0x4A73696ccF76E7381b044cB95127B3784369Ed63",
   usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   treasury: "0x598bF63F5449876efafa7b36b77Deb2070621C0E"
 };
@@ -10,7 +10,7 @@ export const BASE_MAINNET_CONFIG = {
 export const BASE_SEPOLIA_CONFIG = {
   chainId: 84532,
   rpcUrls: ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com"],
-  routerAddress: "0xB587Bc36aaCf65962eCd6Ba59e2DA76f2f575408",
+  routerAddress: "0x24cD8b68aaC209217ff5a6ef1Bf55a59f2c8Ca6F",
   usdcAddress: "0xeAC1f2C7099CdaFfB91Aa3b8Ffd653Ef16935798",
   treasury: "0x598bF63F5449876efafa7b36b77Deb2070621C0E"
 };

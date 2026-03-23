@@ -31,18 +31,22 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    // 🛡️ SECURITY FIX 1: Idempotency (Prevent Replay Attacks)
-    const { data: existing } = await supabase.from('transactions').select('id').eq('tx_hash', receipt).maybeSingle();
-    if (existing) {
-      return NextResponse.json({ error: "DUPLICATE_TRANSACTION: This receipt has already been consumed." }, { status: 400 });
-    }
-
-    // 🛡️ SECURITY FIX 2: Deep On-Chain Verification
+    // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
     const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
+    
+    const supabaseStore = {
+      async checkAndSet(txHash: string, ttlSeconds: number): Promise<boolean> {
+        // Adapter for custom Idempotency Store logic using Supabase
+        const { data: existing } = await supabase.from('transactions').select('id').eq('tx_hash', txHash).maybeSingle();
+        return !existing;
+      }
+    };
+
     const verifier = new PayNodeVerifier({
       rpcUrls: config.rpcUrls,
       chainId: config.chainId,
-      contractAddress: config.routerAddress
+      contractAddress: config.routerAddress,
+      store: supabaseStore
     });
 
     if (!orderId) {
@@ -50,6 +54,7 @@ export async function POST(req: NextRequest) {
     }
     
     const result = await verifier.verifyPayment(receipt, {
+      // 💡 In this Demo, the Doodle Wall's receiving wallet is the protocol treasury. In an actual merchant system, this should be the merchant's own receiving asset wallet address.
       merchantAddress: config.treasury,
       tokenAddress: config.usdcAddress,
       amount: BigInt(10000),
