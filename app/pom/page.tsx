@@ -15,7 +15,20 @@ import {
   Cpu
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Black_Ops_One,
+  Orbitron,
+  Monoton,
+  Sedgwick_Ave_Display,
+  Rampart_One
+} from "next/font/google";
 import { supabase } from "../api/pom/lib/supabase";
+
+const blackOpsOne = Black_Ops_One({ weight: "400", subsets: ["latin"] });
+const orbitron = Orbitron({ subsets: ["latin"] });
+const monoton = Monoton({ weight: "400", subsets: ["latin"] });
+const sedgwickAve = Sedgwick_Ave_Display({ weight: "400", subsets: ["latin"] });
+const rampartOne = Rampart_One({ weight: "400", subsets: ["latin"] });
 
 interface FeedItem {
   agent: string;
@@ -31,6 +44,9 @@ export default function POMExplorer() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const [kingTrigger, setKingTrigger] = useState(0);
+
+  const triggerTopAnim = () => setKingTrigger(prev => prev + 1);
 
   const [data, setData] = useState<{
     feed: FeedItem[];
@@ -167,6 +183,13 @@ export default function POMExplorer() {
           <h1 className="text-4xl font-bold tracking-tight uppercase flex items-center gap-3">
             <TrendingUp className="text-[#00ff88]" /> PayNode_Explorer
             <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded border border-[#00ff88]/20 align-middle ml-2">v1.0-LIVE</span>
+            <button
+              onClick={triggerTopAnim}
+              className="ml-2 p-2 rounded bg-[#00ff88]/10 text-[#00ff88] hover:bg-[#00ff88]/30 transition-all border border-[#00ff88]/20 group active:scale-95"
+              title="Test King Animation"
+            >
+              <Zap size={14} className="group-hover:scale-110 transition-transform" />
+            </button>
           </h1>
         </div>
 
@@ -202,7 +225,8 @@ export default function POMExplorer() {
           {/* Layer 1: Concrete Grain */}
           <div className="absolute inset-0 opacity-40 pointer-events-none mix-blend-overlay"
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.2' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+              backgroundSize: '256px 256px'
             }}
           />
 
@@ -218,12 +242,60 @@ export default function POMExplorer() {
           />
 
           {/* Layer 3: Subtle Wall Cracks */}
-          <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-multiply"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 1000 1000' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,300 Q150,310 200,280 T400,320 M800,0 Q820,150 780,400 M1000,700 L850,850 Q750,800 650,950' stroke='%23000' stroke-width='3' fill='none' opacity='0.4'/%3E%3C/svg%3E")`,
-              backgroundSize: 'cover'
-            }}
-          />
+          <div className="absolute inset-0 opacity-40 pointer-events-none mix-blend-multiply">
+            <svg
+              viewBox="0 0 1000 500"
+              preserveAspectRatio="none"
+              className="w-full h-full"
+            >
+              <defs>
+                <filter id="crackShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="8" />
+                </filter>
+                <filter id="crackCoreBlur" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="1.2" />
+                </filter>
+              </defs>
+              {/* 底层：深度阴影（重度模糊，模拟环境光遮蔽） */}
+              <g filter="url(#crackShadow)" opacity="0.6">
+                {/* 左侧裂缝 - 重塑为下坠蔓延感 */}
+                <path d="M0,260 L35,270 Q60,250 95,280" stroke="black" strokeWidth="1.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M95,280 L130,270 Q170,310 220,290" stroke="black" strokeWidth="0.8cqw" fill="none" strokeLinecap="round" />
+                <path d="M220,290 L270,305 Q320,280 400,300" stroke="black" strokeWidth="0.4cqw" fill="none" strokeLinecap="round" />
+                <path d="M95,280 L80,305 Q65,315 45,340" stroke="black" strokeWidth="0.4cqw" fill="none" strokeLinecap="round" />
+
+                {/* 右上裂缝 - 保持 */}
+                <path d="M820,0 L810,35 Q845,75 805,125" stroke="black" strokeWidth="1.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M805,125 L830,190 Q790,230 800,280" stroke="black" strokeWidth="0.6cqw" fill="none" strokeLinecap="round" />
+                <path d="M805,125 L775,135 Q750,150 720,145" stroke="black" strokeWidth="0.4cqw" fill="none" strokeLinecap="round" />
+
+                {/* 右下裂缝 - 重塑为墙角应力型 */}
+                <path d="M1000,420 L960,435 Q920,410 880,445" stroke="black" strokeWidth="1.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M880,445 L830,430 Q780,480 720,455" stroke="black" strokeWidth="0.8cqw" fill="none" strokeLinecap="round" />
+                <path d="M720,455 L650,475 Q600,490 550,500" stroke="black" strokeWidth="0.4cqw" fill="none" strokeLinecap="round" />
+                <path d="M880,445 L900,470 Q910,490 915,500" stroke="black" strokeWidth="0.4cqw" fill="none" strokeLinecap="round" />
+              </g>
+
+              {/* 上层：锐利核心（带微弱模糊，模拟裂缝深度） */}
+              <g filter="url(#crackCoreBlur)">
+                {/* 左侧裂缝核心 */}
+                <path d="M0,260 L35,270 Q60,250 95,280" stroke="black" strokeWidth="0.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M95,280 L130,270 Q170,310 220,290" stroke="black" strokeWidth="0.1cqw" fill="none" strokeLinecap="round" />
+                <path d="M220,290 L270,305 Q320,280 400,300" stroke="black" strokeWidth="0.05cqw" fill="none" strokeLinecap="round" />
+                <path d="M95,280 L80,305 Q65,315 45,340" stroke="black" strokeWidth="0.04cqw" fill="none" strokeLinecap="round" />
+
+                {/* 右上裂缝核心 */}
+                <path d="M820,0 L810,35 Q845,75 805,125" stroke="black" strokeWidth="0.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M805,125 L830,190 Q790,230 800,280" stroke="black" strokeWidth="0.08cqw" fill="none" strokeLinecap="round" />
+                <path d="M805,125 L775,135 Q750,150 720,145" stroke="black" strokeWidth="0.04cqw" fill="none" strokeLinecap="round" />
+
+                {/* 右下裂缝核心 */}
+                <path d="M1000,420 L960,435 Q920,410 880,445" stroke="black" strokeWidth="0.2cqw" fill="none" strokeLinecap="round" />
+                <path d="M880,445 L830,430 Q780,480 720,455" stroke="black" strokeWidth="0.1cqw" fill="none" strokeLinecap="round" />
+                <path d="M720,455 L650,475 Q600,490 550,500" stroke="black" strokeWidth="0.05cqw" fill="none" strokeLinecap="round" />
+                <path d="M880,445 L900,470 Q910,490 915,500" stroke="black" strokeWidth="0.04cqw" fill="none" strokeLinecap="round" />
+              </g>            </svg>
+          </div>
 
           {/* Layer 4: Vignette Lighting */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/70 pointer-events-none" />
@@ -290,43 +362,47 @@ export default function POMExplorer() {
                     const dynamicSize = Math.min(12, Math.max(5, 100 / len));
                     return (
                       <div key={i} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full text-center" style={{ zIndex: 50 }}>
-                        <motion.div
-                          key={`${name}-${count}`} // RE-ANIMATE ON COUNT CHANGE
-                          initial={{ scale: 1, filter: 'brightness(1) blur(0px)', rotate: -3, skew: 0 }}
+                          <motion.div
+                          key={`${name}-${count}-${kingTrigger}`} // RE-ANIMATE ON TRIGGER OR COUNT CHANGE
+                          initial={{ scale: 1, filter: 'brightness(1) blur(0px)', rotate: -3, skewX: 0, zIndex: 50 }}
                           animate={{
-                            scale: [1, 2.2, 0.7, 1.2, 0.85, 1],
+                            scale: [1, 6.0, 0.3, 1.5, 0.9, 1], // 巨量放大到 6 倍
                             filter: [
                               'brightness(1) blur(0px)',
-                              'brightness(3) blur(10px)',
-                              'brightness(0.6) blur(0px)',
-                              'brightness(1.5) blur(0px)',
-                              'brightness(0.8) blur(0px)',
+                              'brightness(5) blur(15px)', // 更强的闪烁
+                              'brightness(0.4) blur(0px)',
+                              'brightness(1.8) blur(0px)',
+                              'brightness(0.9) blur(0px)',
                               'brightness(1) blur(0px)'
                             ],
-                            rotate: [-3, 5, -8, 2, -3],
-                            skewX: [0, 15, -15, 5, 0]
+                            rotate: [-3, 0, 0, 15, -8, -3], // 6倍放大的瞬间(0.15-0.3)完全转正
+                            skewX: [0, 35, -25, 10, 0], // 更夸张的扭曲
                           }}
                           transition={{
-                            duration: 0.8,
-                            times: [0, 0.15, 0.3, 0.55, 0.8, 1],
+                            duration: 0.9, // 稍微拉长一点点总时长，让 6 倍放大的过程更可观测
+                            times: [0, 0.2, 0.4, 0.65, 0.85, 1], // 稍微推迟峰值，增强蓄力感
                             ease: "easeOut"
                           }}
                           style={{ willChange: 'transform, filter, opacity' }}
                           className={`relative inline-block cursor-default group/king transition-all duration-700 ${isPlaceholder ? 'opacity-20 grayscale' : 'opacity-100'}`}
                         >
                           <span
-                            className={`absolute left-1/2 -translate-x-1/2 font-black uppercase -rotate-6 shadow-[0.5cqw_0.5cqw_0px_black] group-hover/king:rotate-12 transition-transform whitespace-nowrap z-50 ${isPlaceholder ? 'bg-gray-800 text-gray-500' : 'bg-red-600 text-white animate-pulse'}`}
+                            className={`absolute left-1/2 -translate-x-1/2 -rotate-2 group-hover/king:rotate-3 transition-transform duration-500 whitespace-nowrap z-50 ${isPlaceholder ? 'text-gray-500' : 'text-[#00ff88]'} ${orbitron.className} font-bold tracking-tighter`}
                             style={{
-                              top: '-6cqw',
-                              fontSize: '1.2cqw',
-                              padding: '0.2cqw 0.8cqw'
+                              top: '-5cqw',
+                              fontSize: '1.8cqw',
+                              padding: '0.2cqw 0.8cqw',
+                              textShadow: isPlaceholder ? 'none' : '0 0 1cqw #00ff88'
                             }}
                           >
                             {isPlaceholder ? "VACANT_THRONE" : "THE_SUPREME_WRITER"}
                           </span>
                           <h2
-                            className={`font-black italic tracking-tighter -rotate-3 transition-all group-hover/king:scale-110 group-hover/king:rotate-0 duration-500 select-none leading-[0.8] ${isPlaceholder ? 'text-gray-800' : 'text-[#00ff88] drop-shadow-[0_0_40px_rgba(0,255,136,1)]'}`}
-                            style={{ fontSize: `${dynamicSize}cqw` }}
+                            className={`tracking-tighter -rotate-3 transition-all group-hover/king:scale-110 group-hover/king:rotate-3 duration-500 select-none leading-[0.8] ${isPlaceholder ? 'text-gray-800' : 'text-white'} ${blackOpsOne.className}`}
+                            style={{
+                              fontSize: `${dynamicSize}cqw`,
+                              textShadow: isPlaceholder ? 'none' : '0 0 1.5cqw #00ff88, 0 0 3cqw #00ff88, 0 0 5cqw #00ff88'
+                            }}
                           >
                             {name.toUpperCase()}
                           </h2>
@@ -334,14 +410,14 @@ export default function POMExplorer() {
                           {!isPlaceholder && (
                             <>
                               <div
-                                className="absolute left-1/2 -translate-x-1/2 font-mono text-white/80 bg-black/80 backdrop-blur-md border border-[#00ff88]/30 whitespace-nowrap shadow-[0.4cqw_0.4cqw_0px_#00ff88] transition-all duration-500 group-hover/king:scale-110 group-hover/king:rotate-3 cursor-default"
+                                className="absolute left-1/2 -translate-x-1/2 font-mono text-white/80 bg-black/80 backdrop-blur-md border border-[#00ff88]/30 whitespace-nowrap shadow-[0.4cqw_0.4cqw_0px_#00ff88] transition-all duration-500 group-hover/king:scale-110 group-hover/king:rotate-3 cursor-default flex items-center gap-1.5"
                                 style={{
                                   bottom: '-4cqw',
                                   fontSize: '1cqw',
                                   padding: '0.2cqw 0.8cqw'
                                 }}
                               >
-                                {count} SETTLEMENTS
+                                <span className="text-red-500 font-bold" style={{ fontSize: '1.2cqw' }}>{count}</span> SETTLEMENTS
                               </div>
                             </>
                           )}
@@ -379,41 +455,58 @@ export default function POMExplorer() {
                           className="group cursor-default relative inline-block"
                         >
                           <h3
-                            className={`font-black italic tracking-tight ${isPlaceholder ? 'text-gray-700/80 drop-shadow-none' : colors[(i - 1) % colors.length] + ' drop-shadow-[4px_4px_0px_rgba(0,0,0,0.9)]'} select-none uppercase leading-none`}
-                            style={{ fontSize: `${dynamicSize}cqw` }}
+                            className={`${isPlaceholder ? 'text-gray-700/80 drop-shadow-none' : colors[(i - 1) % colors.length] + ' drop-shadow-[0.4cqw_0.4cqw_0px_rgba(0,0,0,0.9)]'} select-none leading-none ${sedgwickAve.className}`}
+                            style={{ fontSize: `${dynamicSize * 1.2}cqw` }}
                           >
                             {name}
                           </h3>
-                          {!isPlaceholder && <div className="absolute -top-4 left-0 text-[10px] font-mono text-white/60 font-black bg-black/40 px-1" style={{ fontSize: '1cqw' }}>#{i + 1}</div>}
+                          {!isPlaceholder && (
+                            <div
+                              className={`absolute left-0 text-white/60 bg-black/40 px-1 ${monoton.className}`}
+                              style={{ fontSize: '1.2cqw', top: '-2.4cqw' }}
+                            >
+                              #{i + 1}
+                            </div>
+                          )}
                         </motion.div>
                       </div>
                     );
                   }
 
-                  // Ranks 11-20: THE CROWD (Edge Framing - Deterministic Position)
-                  const sector = i % 4;
-                  const pX = (i * 137) % 25;
-                  const pY = (i * 223) % 25;
+                  // Ranks 11-20: THE CROWD (Edge Framing - Fixed Position)
+                  if (i >= 10) {
+                    const crowdPositions = [
+                      { top: '12%', left: '8%', rotate: '-25deg' },
+                      { top: '5%', left: '45%', rotate: '10deg' },
+                      { top: '15%', left: '85%', rotate: '-15deg' },
+                      { top: '35%', left: '1%', rotate: '35deg' },
+                      { top: '68%', left: '72%', rotate: '50deg' },
+                      { top: '88%', left: '12%', rotate: '15deg' },
+                      { top: '92%', left: '40%', rotate: '-5deg' },
+                      { top: '85%', left: '88%', rotate: '25deg' },
+                      { top: '45%', left: '15%', rotate: '-18deg' },
+                      { top: '15%', left: '65%', rotate: '-22deg' },
+                    ];
 
-                  const rx = sector === 0 || sector === 3 ? (pX + 5) : (pX + 70);
-                  const ry = sector === 0 || sector === 1 ? (pY + 5) : (pY + 70);
-                  const rr = (i * 47) % 80 - 40;
-                  const dynamicSize = Math.min(3, Math.max(1.2, 20 / len));
+                    const pos = crowdPositions[i - 10] || crowdPositions[0];
+                    const dynamicSize = Math.min(3, Math.max(1.2, 20 / len));
 
-                  return (
-                    <div key={i} className={`absolute select-none transition-all ${isPlaceholder ? 'opacity-[0.15]' : 'opacity-[0.3] hover:opacity-80'}`}
-                      style={{ left: `${rx}%`, top: `${ry}%`, transform: `rotate(${rr}deg)`, zIndex: 20 - i }}>
-                      <motion.span
-                        key={`${name}-${count}`}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`font-black italic uppercase tracking-widest leading-none block ${isPlaceholder ? 'text-gray-800' : 'text-gray-400 drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]'}`}
-                        style={{ fontSize: `${dynamicSize}cqw` }}
-                      >
-                        {name}
-                      </motion.span>
-                    </div>
-                  );
+                    return (
+                      <div key={i} className={`absolute select-none transition-all ${isPlaceholder ? 'opacity-[0.15]' : 'opacity-[0.3] hover:opacity-80'}`}
+                        style={{ left: pos.left, top: pos.top, transform: `rotate(${pos.rotate})`, zIndex: 20 - i }}>
+                        <motion.span
+                          key={`${name}-${count}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`leading-none block ${isPlaceholder ? 'text-gray-800' : 'text-gray-400 drop-shadow-[0.2cqw_0.2cqw_0px_rgba(0,0,0,0.5)]'} ${rampartOne.className}`}
+                          style={{ fontSize: `${dynamicSize * 1.2}cqw` }}
+                        >
+                          {name}
+                        </motion.span>
+                      </div>
+                    );
+                  }
+                  return null;
                 })}
               </div>
             )}

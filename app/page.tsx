@@ -130,7 +130,7 @@ const Hero = () => (
 const Simulator = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [agentName, setAgentName] = useState("Agent-1097");
+  const [agentName, setAgentName] = useState("Agent-1024");
 
   const runSimulation = () => {
     if (isSimulating) return;
@@ -296,13 +296,15 @@ const SDKShowcase = () => (
             express-js (Node.js)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`const { paynode } = require('@paynode/sdk');
+            {`const { x402_gate } = require('@paynodelabs/sdk-js');
 
-// Drop-in middleware
-app.use(paynode({
-  price: 5.00, // USDC
-  merchantWallet: '0x123...'
-}));`}
+// Drop-in middleware (Base Mainnet)
+app.get('/api/data', x402_gate({
+  merchantAddress: '0xYourWallet...',
+  price: '1.00' // 1.00 USDC
+}), (req, res) => {
+  res.json({ data: 'Hello from AI Economy!' });
+});`}
           </pre>
         </div>
 
@@ -311,13 +313,14 @@ app.use(paynode({
             fastapi.py (Python)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`from paynode_sdk import PayNode
+            {`from paynode_sdk import PayNodeMiddleware
 
-pn = PayNode(merchant_wallet="0x123...")
-
-@app.middleware("http")
-async def paynode_mw(request, call_next):
-    return await pn.intercept(request, call_next, price=5.0)`}
+# Minimalist for Mainnet
+app.add_middleware(
+    PayNodeMiddleware,
+    merchant_address="0xYourWallet...",
+    price="1.00", # 1.00 USDC
+)`}
           </pre>
         </div>
       </div>
@@ -333,12 +336,13 @@ async def paynode_mw(request, call_next):
             agent-sdk.py (Python)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`from paynode_sdk import Client
+            {`from paynode_sdk import PayNodeAgentClient
 
-agent = Client(private_key="0x...")
+agent = PayNodeAgentClient(private_key="0x...")
 
 # Handles 402, resolves Router, and pays
-response = agent.get("https://api.merchant.com/data")`}
+response = agent.request_gate("https://api.merchant.com/data")
+print(response.json())`}
           </pre>
         </div>
 
@@ -347,12 +351,13 @@ response = agent.get("https://api.merchant.com/data")`}
             agent-sdk.js (JavaScript)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`import { PayNodeAgent } from "@paynode/sdk";
+            {`const { PayNodeAgentClient } = require('@paynodelabs/sdk-js');
 
-const agent = new PayNodeAgent({ privateKey: "0x..." });
+const agent = new PayNodeAgentClient(process.env.PRIVATE_KEY);
 
 // Automatically handles POM signing & payment
-const res = await agent.fetch("https://api.merchant.com/data");`}
+const res = await agent.requestGate('https://api.merchant.com/data');
+const { data } = await res.json();`}
           </pre>
         </div>
       </div>
