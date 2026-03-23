@@ -46,8 +46,6 @@ export default function POMExplorer() {
   const logEndRef = useRef<HTMLDivElement>(null);
   const [kingTrigger, setKingTrigger] = useState(0);
 
-  const triggerTopAnim = () => setKingTrigger(prev => prev + 1);
-
   const [data, setData] = useState<{
     feed: FeedItem[];
     leaderboard: [string, number][];
@@ -182,14 +180,7 @@ export default function POMExplorer() {
           </Link>
           <h1 className="text-4xl font-bold tracking-tight uppercase flex items-center gap-3">
             <TrendingUp className="text-[#00ff88]" /> PayNode_Explorer
-            <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded border border-[#00ff88]/20 align-middle ml-2">v1.0-LIVE</span>
-            <button
-              onClick={triggerTopAnim}
-              className="ml-2 p-2 rounded bg-[#00ff88]/10 text-[#00ff88] hover:bg-[#00ff88]/30 transition-all border border-[#00ff88]/20 group active:scale-95"
-              title="Test King Animation"
-            >
-              <Zap size={14} className="group-hover:scale-110 transition-transform" />
-            </button>
+            <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded border border-[#00ff88]/20 align-middle ml-2">v2.0</span>
           </h1>
         </div>
 
@@ -330,7 +321,7 @@ export default function POMExplorer() {
               className="hidden md:flex items-center font-mono tracking-[0.2em]"
               style={{ gap: '1.5cqw', fontSize: '0.8cqw' }}
             >
-              <span className="text-white/20 hidden lg:block">VANDAL_MODE_V1.3</span>
+              <span className="text-white/20 hidden lg:block">VANDAL_MODE_V2.0</span>
               <span className="flex items-center gap-2 text-[#00ff88]/60">
                 <div
                   className="rounded-full bg-[#00ff88] animate-ping"
