@@ -8,14 +8,14 @@ export async function POST(req: NextRequest) {
     const { agent_name } = await req.json();
     const searchParams = req.nextUrl.searchParams;
     const isMainnet = searchParams.get('network') === 'mainnet';
-    
+
     const config = getNetworkConfig(isMainnet);
     const receipt = req.headers.get('x-paynode-receipt');
     const orderId = req.headers.get('x-paynode-order-id');
 
     if (!receipt) {
       // 1. Handshake: Return Protocol Headers (v1.3 standard)
-      const response = NextResponse.json({ 
+      const response = NextResponse.json({
         status: "PAYMENT_REQUIRED",
         message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE"
       }, { status: 402 });
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       response.headers.set('x-paynode-amount', "10000"); // 0.01 USDC
       response.headers.set('x-paynode-token-address', config.usdcAddress);
       response.headers.set('x-paynode-order-id', `order_${Date.now()}`);
-      
+
       return response;
     }
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const result = await verifier.verifyPayment(receipt, {
       merchantAddress: config.treasury,
       tokenAddress: config.usdcAddress,
-      amount: BigInt(10000), 
+      amount: BigInt(10000),
       orderId: orderId || `order_${Date.now()}`
     });
 
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
 
     const totalTransactions = statsData.length;
     const amountInMicro = statsData.reduce((acc, curr) => acc + BigInt(Math.round(Number(curr.amount) * 1e6)), BigInt(0));
-    
+
     // Accurate 99/1 split display
     const merchantMicro = amountInMicro * BigInt(99) / BigInt(100);
     const protocolMicro = amountInMicro * BigInt(1) / BigInt(100);
@@ -115,13 +115,13 @@ export async function GET(req: NextRequest) {
     const protocolFees = (Number(protocolMicro) / 1e6).toFixed(6);
 
     const counts: Record<string, number> = {};
-    statsData.forEach((entry: {agent_name: string, amount: number}) => {
+    statsData.forEach((entry: { agent_name: string, amount: number }) => {
       counts[entry.agent_name] = (counts[entry.agent_name] || 0) + 1;
     });
-    
+
     const leaderboard = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+      .slice(0, 20);
 
     return NextResponse.json({
       feed: feed.map(f => ({
