@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getNetworkConfig } from './config';
 import { supabase } from './lib/supabase';
 
+function isAllowedDomain(req: NextRequest) {
+  const host = req.headers.get('host');
+  const origin = req.headers.get('origin');
+  const referer = req.headers.get('referer');
+
+  // Allow same-origin or non-browser requests
+  // For production, you could explicitly check against process.env.SITE_URL
+  try {
+    if (origin && new URL(origin).host !== host) return false;
+    if (referer && new URL(referer).host !== host) return false;
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -97,6 +113,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!isAllowedDomain(req)) {
+     return NextResponse.json({ error: "FORBIDDEN: Cross-origin requests not allowed." }, { status: 403 });
+  }
   try {
     const searchParams = req.nextUrl.searchParams;
     const isMainnet = searchParams.get('network') === 'mainnet';
