@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Activity,
@@ -37,9 +38,13 @@ interface FeedItem {
   isMainnet: boolean;
 }
 
-export default function POMExplorer() {
-  const [isMainnet, setIsMainnet] = useState(true);
-  const [agentName, setAgentName] = useState("");
+function POMExplorerContent() {
+  const searchParams = useSearchParams();
+  const networkParam = searchParams.get('network');
+  const agentParam = searchParams.get('agent_name');
+
+  const [isMainnet, setIsMainnet] = useState(networkParam !== "testnet");
+  const [agentName, setAgentName] = useState(agentParam || "");
   const [logs, setLogs] = useState<string[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -147,7 +152,7 @@ export default function POMExplorer() {
 
       const result = await res.json();
 
-      if (res.ok) {
+      if (res.ok && !result.error) {
         addLog(`TX_CONFIRMED: ${result.txHash.slice(0, 16)}...`);
         addLog(`PayNode_SDK: Retrying with receipt...`);
         await new Promise(r => setTimeout(r, 800));
@@ -168,6 +173,7 @@ export default function POMExplorer() {
       if (retryCount === 0 || !isExecuting) setIsExecuting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#ededed] font-sans p-6 md:p-12 relative overflow-hidden">
@@ -300,17 +306,17 @@ export default function POMExplorer() {
               style={{ fontSize: '1.4cqw', gap: '0.8cqw' }}
             >
               <span
-                className="bg-[#00ff88] text-black rounded-none"
+                className="bg-[#00ff88] text-black rounded-none font-black"
                 style={{
-                  padding: '0.1cqw 0.6cqw',
+                  padding: '0.1cqw 1cqw',
                   fontSize: '0.8cqw',
                   boxShadow: '0.2cqw 0.2cqw 0px rgba(0,0,0,0.5)'
                 }}
               >
-                STREET
+                THE_DOODLE_WALL
               </span>
               <span className="flex items-center">
-                CREDIT_LEADERBOARD
+                VANDALISM_LEADERBOARD
                 <span
                   className="bg-[#00ff88]/50 ml-2 animate-pulse"
                   style={{ width: '0.6cqw', height: '1.2cqw' }}
@@ -664,5 +670,17 @@ export default function POMExplorer() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function POMExplorer() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <RefreshCw className="animate-spin text-[#00ff88]" size={48} />
+      </div>
+    }>
+      <POMExplorerContent />
+    </Suspense>
   );
 }

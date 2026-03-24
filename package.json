@@ -11,6 +11,7 @@
   "dependencies": {
     "@paynodelabs/sdk-js": "^1.2.0",
     "@supabase/supabase-js": "^2.99.3",
+    "@vercel/analytics": "^2.0.1",
     "ethers": "^6.16.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",

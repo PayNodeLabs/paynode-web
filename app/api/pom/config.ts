@@ -11,7 +11,7 @@ export const BASE_SEPOLIA_CONFIG = {
   chainId: 84532,
   rpcUrls: ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com"],
   routerAddress: "0x24cD8b68aaC209217ff5a6ef1Bf55a59f2c8Ca6F",
-  usdcAddress: "0xeAC1f2C7099CdaFfB91Aa3b8Ffd653Ef16935798",
+  usdcAddress: "0x109AEddD656Ed2761d1e210E179329105039c784",
   treasury: "0x598bF63F5449876efafa7b36b77Deb2070621C0E"
 };
 
