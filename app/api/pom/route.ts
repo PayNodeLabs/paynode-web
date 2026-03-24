@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
       // 1. Handshake: Return Protocol Headers (v1.3 standard)
       const response = NextResponse.json({
         status: "PAYMENT_REQUIRED",
-        message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE"
+        message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE",
+        explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
       }, { status: 402 });
 
       response.headers.set('x-paynode-contract', config.routerAddress);
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
     const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
-    
+
     const supabaseStore = {
       async checkAndSet(txHash: string, ttlSeconds: number): Promise<boolean> {
         // Adapter for custom Idempotency Store logic using Supabase
@@ -46,13 +47,14 @@ export async function POST(req: NextRequest) {
       rpcUrls: config.rpcUrls,
       chainId: config.chainId,
       contractAddress: config.routerAddress,
-      store: supabaseStore
+      store: supabaseStore,
+      acceptedTokens: [config.usdcAddress]
     });
 
     if (!orderId) {
       return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'x-paynode-order-id' in retry header." }, { status: 400 });
     }
-    
+
     const result = await verifier.verifyPayment(receipt, {
       // 💡 In this Demo, the Doodle Wall's receiving wallet is the protocol treasury. In an actual merchant system, this should be the merchant's own receiving asset wallet address.
       merchantAddress: config.treasury,
@@ -85,7 +87,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: "SUCCESS",
       txHash: receipt,
-      message: `Verified! Welcome to the Doodle Wall, ${agent_name}`
+      message: `Verified! Welcome to the Doodle Wall, ${agent_name}`,
+      explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
     });
 
   } catch (error: any) {
@@ -119,11 +122,11 @@ export async function GET(req: NextRequest) {
         .from('transactions')
         .select('amount, agent_name')
         .eq('network', network);
-      
+
       const counts: Record<string, number> = {};
       statsData?.forEach(e => counts[e.agent_name] = (counts[e.agent_name] || 0) + 1);
-      
-      const leaderboard = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 20);
+
+      const leaderboard = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20);
       const totalAmt = statsData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
 
       return NextResponse.json({

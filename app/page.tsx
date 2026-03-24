@@ -264,9 +264,17 @@ const StatsBoard = () => {
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
               Switch to Sandbox mode in the Explorer to perform one-click simulations with our faucet wallet. Observe how Agents handle 402 errors and complete on-chain payments in real-time.
             </p>
-            <div className="flex items-center gap-2 text-orange-500 font-mono text-xs">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-              Base Sepolia Sandbox
+            <div className="flex justify-between items-center mt-auto">
+              <a
+                href="/pom?network=testnet"
+                className="inline-flex items-center gap-2 text-xs font-bold text-orange-500 hover:text-orange-400 transition-colors uppercase tracking-widest"
+              >
+                Go to Sandbox <ChevronRight size={14} />
+              </a>
+              <div className="flex items-center gap-2 text-orange-500 font-mono text-xs">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                Base Sepolia Sandbox
+              </div>
             </div>
           </div>
         </div>
@@ -296,7 +304,7 @@ const SDKShowcase = () => (
             express-js (Node.js)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`const { x402Gate } = require('@paynodelabs/sdk-js');
+            {`import { x402Gate } from '@paynodelabs/sdk-js';
 
 // Drop-in middleware (Base Mainnet)
 app.get('/api/data', x402Gate({
@@ -351,7 +359,7 @@ print(response.json())`}
             agent-sdk.js (JavaScript)
           </div>
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
-            {`const { PayNodeAgentClient } = require('@paynodelabs/sdk-js');
+            {`import { PayNodeAgentClient } from '@paynodelabs/sdk-js';
 
 const agent = new PayNodeAgentClient(process.env.PRIVATE_KEY);
 

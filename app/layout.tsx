@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
+
 
 export const metadata: Metadata = {
   title: "PayNode | The Agent-to-Machine Payment Protocol",
@@ -40,6 +42,7 @@ export default function RootLayout({
     <html lang="en" className="h-full scroll-smooth">
       <body className="bg-[#050505] text-white antialiased min-h-screen font-sans">
         {children}
+        <Analytics />
       </body>
     </html>
   );
