@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  Terminal,
   Zap,
   Code2,
   ExternalLink,
@@ -10,7 +9,13 @@ import {
   Database,
   Globe,
   Copy,
-  Check
+  Check,
+  Shield,
+  Clock,
+  Layers,
+  ArrowRight,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 
 // --- Components ---
@@ -131,23 +136,39 @@ const Simulator = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [agentName, setAgentName] = useState("Agent-1024");
+  const [paymentMethod, setPaymentMethod] = useState<"onchain" | "eip3009" | "async">("eip3009");
 
-  const runSimulation = () => {
-    if (isSimulating) return;
+  const runSimulation = (method: "onchain" | "eip3009" | "async") => {
+    if (method === "async" || isSimulating) return;
     setIsSimulating(true);
+    setPaymentMethod(method);
     setLogs([]);
 
-    const steps = [
+    const baseSteps = [
       "📡 Intercepting outgoing API request...",
       "HTTP/1.1 402 Payment Required",
-      "🔍 Resolving PayNode-Router-Address: 0x4A73...Ed63",
-      "🔐 Agent checking wallet allowance (USDC/Base)...",
-      `💸 Initiating PayNode Tx for ${agentName}...`,
-      "⏳ Mining on Base L2...",
-      "✅ Payment Confirmed (x-paynode-receipt generated).",
-      "🚀 Resubmitting request with x-paynode-receipt header.",
+      "🔍 Parsing X-402-Required discovery payload...",
+      `🎯 Selected payment method: ${method === "eip3009" ? "EIP-3009 (Off-chain)" : "On-chain"}`,
+    ];
+
+    const eip3009Steps = [
+      "🔐 Agent signing TransferWithAuthorization (EIP-3009)...",
+      "✍️ Signature generated (< 50ms, no gas required)",
+      "📤 Submitting X-402-Payload with signature...",
+      "⚡ Merchant verifying signature on-chain...",
       "🎉 Access Granted: Welcome to the Matrix."
     ];
+
+    const onchainSteps = [
+      "🔐 Agent checking wallet allowance (USDC/Base)...",
+      `💸 Initiating PayNode Tx for ${agentName}...`,
+      "⏳ Mining on Base L2 (~2 seconds)...",
+      "✅ Payment Confirmed (txHash generated)",
+      "📤 Resubmitting with X-402-Payload header...",
+      "🎉 Access Granted: Welcome to the Matrix."
+    ];
+
+    const steps = [...baseSteps, ...(method === "eip3009" ? eip3009Steps : onchainSteps)];
 
     steps.forEach((step, i) => {
       setTimeout(() => {
@@ -157,21 +178,59 @@ const Simulator = () => {
     });
   };
 
+  const tabs = [
+    { id: "eip3009" as const, label: "EIP-3009", sublabel: "Off-chain • ~50ms", color: "#00ff88" },
+    { id: "onchain" as const, label: "On-chain", sublabel: "Router.pay() • ~2s", color: "#3b82f6" },
+    { id: "async" as const, label: "Async Settlement", sublabel: "Coming Soon", color: "#a855f7" },
+  ];
+
   return (
     <section id="simulator" className="py-24 px-6 max-w-6xl mx-auto">
+      <div className="text-center mb-16">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4 flex items-center justify-center gap-2">
+          <div className="flex items-center text-[#00ff88] font-mono">
+            <span className="text-glow">$</span>
+            <span className="animate-pulse">_</span>
+          </div>
+          Experience x402-v2 in Seconds.
+        </h2>
+        <p className="text-gray-400 max-w-2xl mx-auto">
+          AI agents don&apos;t have credit cards. PayNode turns standard HTTP 402 errors into deterministic USDC payments.
+          Pick a method below and watch the handshake.
+        </p>
+      </div>
+
+      <div className="flex justify-center mb-8">
+        <div className="inline-flex bg-white/5 rounded-xl p-1 border border-white/10">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              disabled={tab.id === "async"}
+              onClick={() => {
+                setPaymentMethod(tab.id);
+                setLogs([]);
+                runSimulation(tab.id);
+              }}
+              className={`relative px-6 py-3 rounded-lg text-sm font-medium transition-all ${
+                paymentMethod === tab.id
+                  ? "text-black font-bold"
+                  : tab.id === "async"
+                    ? "text-gray-600 cursor-not-allowed"
+                    : "text-gray-400 hover:text-white"
+              }`}
+              style={paymentMethod === tab.id ? { backgroundColor: tab.color } : {}}
+            >
+              <span>{tab.label}</span>
+              <span className={`block text-[10px] mt-0.5 ${paymentMethod === tab.id ? "text-black/70" : "opacity-50"}`}>
+                {tab.sublabel}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-12 items-center">
         <div>
-          <h2 className="text-3xl font-bold mb-6 flex items-center gap-2">
-            <div className="flex items-center text-[#00ff88] font-mono">
-              <span className="text-glow">$</span>
-              <span className="animate-pulse">_</span>
-            </div>
-            Experience x402 in Seconds.
-          </h2>
-          <p className="text-gray-400 mb-8 leading-relaxed">
-            AI agents don&apos;t have credit cards. PayNode turns standard HTTP 402 errors into deterministic USDC payments.
-            Try the simulated payment flow without spending a cent.
-          </p>
           <div className="flex flex-col gap-4">
             <input
               type="text"
@@ -180,13 +239,27 @@ const Simulator = () => {
               onChange={(e) => setAgentName(e.target.value)}
               className="bg-white/5 border border-white/10 p-4 rounded-xl focus:outline-none focus:border-[#00ff88]/50 transition-colors"
             />
-            <button
-              disabled={isSimulating}
-              onClick={runSimulation}
-              className="px-6 py-4 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
-            >
-              {isSimulating ? "Simulating..." : "Execute 402 Payment"} <ChevronRight size={18} />
-            </button>
+            {paymentMethod === "async" ? (
+              <div className="p-8 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center">
+                <Loader2 className="mx-auto mb-3 text-purple-400" size={24} />
+                <p className="text-purple-400 font-medium mb-1">Async Settlement</p>
+                <p className="text-gray-500 text-sm">Coming soon — batched off-chain signing with periodic smart contract settlement.</p>
+              </div>
+            ) : (
+              <button
+                disabled={isSimulating}
+                onClick={() => runSimulation(paymentMethod)}
+                className={`px-6 py-4 font-bold rounded-xl transition-all text-center ${
+                  isSimulating
+                    ? "opacity-50 cursor-not-allowed"
+                    : paymentMethod === "eip3009"
+                      ? "bg-[#00ff88]/10 border border-[#00ff88]/30 text-[#00ff88] hover:bg-[#00ff88]/20"
+                      : "bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20"
+                }`}
+              >
+                {isSimulating ? "Simulating..." : "Run Simulation"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -211,6 +284,204 @@ const Simulator = () => {
     </section>
   );
 };
+
+const PaymentMethodsComparison = () => (
+  <section id="methods" className="py-24 px-6 max-w-6xl mx-auto">
+    <div className="text-center mb-16">
+      <div className="text-xs font-mono text-[#00ff88] mb-4 flex items-center justify-center gap-2">
+        <Layers size={14} /> x402 v2 PAYMENT ARCHITECTURE
+      </div>
+      <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        Three ways to pay. <span className="text-gray-500">Zero compromise.</span>
+      </h2>
+      <p className="text-gray-400 max-w-2xl mx-auto">
+        PayNode supports synchronous on-chain settlement, gasless off-chain signing, and a future async model for high-frequency M2M payments.
+      </p>
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-6">
+      {/* Method 1: On-chain */}
+      <div className="relative rounded-2xl border border-blue-500/20 bg-gradient-to-b from-blue-500/5 to-transparent p-6 hover:border-blue-500/40 transition-all group">
+        <div className="absolute -top-3 left-6">
+          <span className="bg-blue-500 text-black text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+            Method 1
+          </span>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <Database className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">On-chain</h3>
+              <p className="text-xs text-blue-400 font-mono">Router.pay()</p>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            Agent detects 402, signs and submits an on-chain transaction via PayNode Router, then retries the request with the txHash.
+          </p>
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Clock size={12} className="text-blue-400" />
+              <span>~2s settlement</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Database size={12} className="text-blue-400" />
+              <span>Merchant verifies txHash</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Shield size={12} className="text-blue-400" />
+              <span>Immediate finality on-chain</span>
+            </div>
+          </div>
+          <div className="border-t border-white/5 pt-4">
+            <p className="text-xs text-gray-600">
+              <span className="text-gray-400">Best for:</span> High-value APIs, real-time settlement, direct merchant payouts
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Method 2: EIP-3009 */}
+      <div className="relative rounded-2xl border border-[#00ff88]/20 bg-gradient-to-b from-[#00ff88]/5 to-transparent p-6 hover:border-[#00ff88]/40 transition-all group ring-1 ring-[#00ff88]/10">
+        <div className="absolute -top-3 left-6">
+          <span className="bg-[#00ff88] text-black text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+            Recommended
+          </span>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-[#00ff88]/10 flex items-center justify-center">
+              <Sparkles className="text-[#00ff88]" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">EIP-3009</h3>
+              <p className="text-xs text-[#00ff88] font-mono">Off-chain Signing</p>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            Agent signs a TransferWithAuthorization off-chain, sends the signature to the merchant. Merchant decides: serve data first, verify later.
+          </p>
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Clock size={12} className="text-[#00ff88]" />
+              <span>&lt;50ms signing, agent pays zero gas</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Database size={12} className="text-[#00ff88]" />
+              <span>Merchant submits on-chain & pays gas</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Shield size={12} className="text-[#00ff88]" />
+              <span>Agent pays zero gas fees</span>
+            </div>
+          </div>
+          <div className="border-t border-white/5 pt-4">
+            <p className="text-xs text-gray-600">
+              <span className="text-gray-400">Best for:</span> High-frequency APIs, latency-sensitive agents, gasless UX
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Method 3: Async Settlement (Future) */}
+      <div className="relative rounded-2xl border border-purple-500/20 bg-gradient-to-b from-purple-500/5 to-transparent p-6 hover:border-purple-500/40 transition-all group">
+        <div className="absolute -top-3 left-6">
+          <span className="bg-purple-500/80 text-white text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+            Coming Soon
+          </span>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+              <Loader2 className="text-purple-400" size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Async Settlement</h3>
+              <p className="text-xs text-purple-400 font-mono">Batched Payouts</p>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            Agent signs off-chain as usual. A settlement contract delivers merchant data first, then batches and settles transactions periodically or by volume.
+          </p>
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Clock size={12} className="text-purple-400" />
+              <span>Instant data access</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Database size={12} className="text-purple-400" />
+              <span>Batch settlement via smart contract</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Shield size={12} className="text-purple-400" />
+              <span>Optimized gas via aggregation</span>
+            </div>
+          </div>
+          <div className="border-t border-white/5 pt-4">
+            <p className="text-xs text-gray-600">
+              <span className="text-gray-400">Best for:</span> Micro-transactions, high-volume M2M, cost-optimized pipelines
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Flow Comparison */}
+    <div className="mt-16 border border-white/10 rounded-2xl overflow-hidden">
+      <div className="bg-white/5 px-6 py-4 border-b border-white/5">
+        <h3 className="font-bold text-sm flex items-center gap-2">
+          <ArrowRight size={14} className="text-[#00ff88]" />
+          Payment Flow Comparison
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/5">
+              <th className="text-left py-4 px-6 text-gray-500 font-mono text-xs uppercase">Step</th>
+              <th className="text-center py-4 px-6 text-blue-400 font-mono text-xs">On-chain</th>
+              <th className="text-center py-4 px-6 text-[#00ff88] font-mono text-xs">EIP-3009</th>
+              <th className="text-center py-4 px-6 text-purple-400 font-mono text-xs">Async</th>
+            </tr>
+          </thead>
+          <tbody className="text-gray-300">
+            <tr className="border-b border-white/5">
+              <td className="py-3 px-6 text-gray-500 font-mono text-xs">1. Agent detects 402</td>
+              <td className="py-3 px-6 text-center">✓</td>
+              <td className="py-3 px-6 text-center">✓</td>
+              <td className="py-3 px-6 text-center">✓</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-3 px-6 text-gray-500 font-mono text-xs">2. Payment execution</td>
+              <td className="py-3 px-6 text-center text-xs">On-chain tx</td>
+              <td className="py-3 px-6 text-center text-xs">Off-chain sign</td>
+              <td className="py-3 px-6 text-center text-xs">Off-chain sign</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-3 px-6 text-gray-500 font-mono text-xs">3. Data delivery</td>
+              <td className="py-3 px-6 text-center text-xs">After verify tx</td>
+              <td className="py-3 px-6 text-center text-xs">After verify sig</td>
+              <td className="py-3 px-6 text-center text-xs text-purple-400">Immediate</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-3 px-6 text-gray-500 font-mono text-xs">4. Settlement</td>
+              <td className="py-3 px-6 text-center text-xs">Instant</td>
+              <td className="py-3 px-6 text-center text-xs">Merchant submits</td>
+              <td className="py-3 px-6 text-center text-xs text-purple-400">Batched</td>
+            </tr>
+            <tr>
+              <td className="py-3 px-6 text-gray-500 font-mono text-xs">5. Gas cost</td>
+              <td className="py-3 px-6 text-center text-xs text-blue-400">Agent pays</td>
+              <td className="py-3 px-6 text-center text-xs text-[#00ff88]">Merchant pays</td>
+              <td className="py-3 px-6 text-center text-xs text-purple-400">Shared (optimized)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+);
 
 const StatsBoard = () => {
   return (
@@ -285,11 +556,14 @@ const StatsBoard = () => {
 
 const SDKShowcase = () => (
   <section id="sdk" className="py-24 px-6 max-w-6xl mx-auto">
-    <div className="text-center mb-16">
+      <div className="text-center mb-16">
+      <div className="text-xs font-mono text-gray-500 mb-4 flex items-center justify-center gap-2">
+        <Layers size={14} className="text-[#00ff88]" /> Universal SDK — one API, three payment methods
+      </div>
       <h2 className="text-3xl font-bold mb-4 flex items-center justify-center gap-2">
         <Code2 className="text-[#00ff88]" /> Two lines of code to integrate.
       </h2>
-      <p className="text-gray-400">Whether you are a merchant selling an API or an agent buying one.</p>
+      <p className="text-gray-400">Merchant decides payment method via <code className="text-[#00ff88] bg-[#00ff88]/10 px-1.5 py-0.5 rounded text-xs">accepts</code> array. SDK follows.</p>
     </div>
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -331,6 +605,11 @@ app.add_middleware(
 )`}
           </pre>
         </div>
+
+        <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-500">
+          <p className="mb-2"><span className="text-[#00ff88] font-medium">How it works:</span> Middleware returns <code className="bg-white/10 px-1 py-0.5 rounded">402</code> with <code className="bg-white/10 px-1 py-0.5 rounded">accepts</code> array.</p>
+          <p>Merchant controls method priority — SDK picks the first available.</p>
+        </div>
       </div>
 
       {/* Agent Section */}
@@ -348,7 +627,7 @@ app.add_middleware(
 
 agent = PayNodeAgentClient(private_key="0x...")
 
-# Handles 402, resolves Router, and pays
+# Auto-selects EIP-3009 or On-chain
 response = agent.request_gate("https://api.merchant.com/data")
 print(response.json())`}
           </pre>
@@ -363,10 +642,15 @@ print(response.json())`}
 
 const agent = new PayNodeAgentClient(process.env.PRIVATE_KEY);
 
-// Automatically handles POM signing & payment
+// Auto-selects EIP-3009 or On-chain
 const res = await agent.requestGate('https://api.merchant.com/data');
 const { data } = await res.json();`}
           </pre>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-500">
+          <p className="mb-2"><span className="text-blue-400 font-medium">SDK behavior:</span> Picks first method from merchant&apos;s <code className="bg-white/10 px-1 py-0.5 rounded">accepts</code> array.</p>
+          <p>No agent-side preference — merchant controls the flow.</p>
         </div>
       </div>
     </div>
@@ -384,6 +668,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#050505]">
       <Navbar />
       <Hero />
+      <PaymentMethodsComparison />
       <Simulator />
       <StatsBoard />
       <SDKShowcase />

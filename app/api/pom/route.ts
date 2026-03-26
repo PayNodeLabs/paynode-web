@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNetworkConfig } from './config';
-import { supabase } from './lib/supabase';
+import { getNetworkConfig, PROTOCOL_TREASURY, MIN_PAYMENT_AMOUNT } from './config';
+import { supabaseAdmin } from './lib/supabase-admin';
+import type { UnifiedPaymentPayload, ExactEVMPayload } from '@paynodelabs/sdk-js';
+
+interface EIP3009Payload extends ExactEVMPayload {
+  extra?: Record<string, string>;
+}
 
 function isAllowedDomain(req: NextRequest) {
   const host = req.headers.get('host');
@@ -12,7 +17,7 @@ function isAllowedDomain(req: NextRequest) {
   try {
     if (origin && new URL(origin).host !== host) return false;
     if (referer && new URL(referer).host !== host) return false;
-  } catch (e) {
+  } catch {
     return false;
   }
   return true;
@@ -26,89 +31,128 @@ export async function POST(req: NextRequest) {
     const isMainnet = searchParams.get('network') === 'mainnet';
 
     const config = getNetworkConfig(isMainnet);
-    const receipt = req.headers.get('x-paynode-receipt');
-    const orderId = req.headers.get('x-paynode-order-id');
+    const v2PayloadHeader = req.headers.get('X-402-Payload');
+    const orderId = req.headers.get('X-402-Order-Id');
 
-    if (!receipt) {
-      // 1. Handshake: Return Protocol Headers (v1.3 standard)
-      const response = NextResponse.json({
-        status: "PAYMENT_REQUIRED",
-        message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE",
-        explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
-      }, { status: 402 });
+    if (v2PayloadHeader) {
+      // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
+      const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
 
-      response.headers.set('x-paynode-contract', config.routerAddress);
-      response.headers.set('x-paynode-merchant', config.treasury);
-      response.headers.set('x-paynode-amount', "10000"); // 0.01 USDC
-      response.headers.set('x-paynode-token-address', config.usdcAddress);
-      response.headers.set('x-paynode-order-id', `order_${Date.now()}`);
-      response.headers.set('x-paynode-currency', 'USDC');
-      response.headers.set('x-paynode-chain-id', config.chainId.toString());
+      const supabaseStore = {
+        async checkAndSet(key: string) {
+          const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
+          return !existing;
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        async delete(key: string): Promise<void> {
+          return;
+        }
+      };
 
-      return response;
-    }
-
-    // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
-    const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
-
-    const supabaseStore = {
-      async checkAndSet(txHash: string, ttlSeconds: number): Promise<boolean> {
-        // Adapter for custom Idempotency Store logic using Supabase
-        const { data: existing } = await supabase.from('transactions').select('id').eq('tx_hash', txHash).maybeSingle();
-        return !existing;
-      }
-    };
-
-    const verifier = new PayNodeVerifier({
-      rpcUrls: config.rpcUrls,
-      chainId: config.chainId,
-      contractAddress: config.routerAddress,
-      store: supabaseStore,
-      acceptedTokens: [config.usdcAddress]
-    });
-
-    if (!orderId) {
-      return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'x-paynode-order-id' in retry header." }, { status: 400 });
-    }
-
-    const result = await verifier.verifyPayment(receipt, {
-      // 💡 In this Demo, the Doodle Wall's receiving wallet is the protocol treasury. In an actual merchant system, this should be the merchant's own receiving asset wallet address.
-      merchantAddress: config.treasury,
-      tokenAddress: config.usdcAddress,
-      amount: BigInt(10000),
-      orderId: orderId
-    });
-
-    if (!result.isValid) {
-      return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
-    }
-
-    // 2. Persistent Storage (Verified Data Only)
-    const { error: insertError } = await supabase
-      .from('transactions')
-      .insert({
-        agent_name: agent_name || `Agent-${Math.floor(Math.random() * 1000)}`,
-        tx_hash: receipt,
-        amount: 10000 / 1e6,
-        merchant_address: config.treasury,
-        network: isMainnet ? 'mainnet' : 'testnet',
-        order_id: orderId || `order_${Date.now()}`
+      const verifier = new PayNodeVerifier({
+        rpcUrls: config.rpcUrls,
+        chainId: config.chainId,
+        contractAddress: config.routerAddress,
+        store: supabaseStore,
+        acceptedTokens: [config.usdcAddress]
       });
 
-    if (insertError) {
-      console.error("[Supabase_Insert_Error]:", insertError.message);
-      return NextResponse.json({ error: "INTERNAL_ERROR: Failed to save verified transaction." }, { status: 500 });
+      let unifiedPayload: UnifiedPaymentPayload;
+      try {
+        unifiedPayload = JSON.parse(Buffer.from(v2PayloadHeader, 'base64').toString());
+      } catch {
+        return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode X-402-Payload header." }, { status: 400 });
+      }
+
+      if (!orderId) {
+        return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
+      }
+
+      const result = await verifier.verify(unifiedPayload, {
+        merchantAddress: PROTOCOL_TREASURY,
+        tokenAddress: config.usdcAddress,
+        amount: BigInt(MIN_PAYMENT_AMOUNT).toString(),
+        orderId: orderId
+      }, unifiedPayload.type === 'eip3009' ? (unifiedPayload.payload as EIP3009Payload)?.extra : {});
+
+      if (!result.isValid) {
+        return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
+      }
+
+      // 2. Persistent Storage (Verified Data Only)
+      const txHash = 'txHash' in unifiedPayload.payload ? unifiedPayload.payload.txHash : unifiedPayload.payload.signature;
+      const { error: insertError } = await supabaseAdmin
+        .from('transactions')
+        .insert({
+          agent_name: agent_name || `Agent-${Math.floor(Math.random() * 1000)}`,
+          tx_hash: txHash,
+          amount: MIN_PAYMENT_AMOUNT / 1e6,
+          merchant_address: PROTOCOL_TREASURY,
+          network: isMainnet ? 'mainnet' : 'testnet',
+          order_id: orderId || `order_${Date.now()}`
+        });
+
+      if (insertError) {
+        console.error("[Supabase_Insert_Error]:", insertError.message);
+        return NextResponse.json({ error: "INTERNAL_ERROR: Failed to save verified transaction." }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        status: "SUCCESS",
+        txHash: txHash,
+        message: `Verified! Welcome to the Doodle Wall, ${agent_name}`,
+        explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
+      });
     }
 
-    return NextResponse.json({
-      status: "SUCCESS",
-      txHash: receipt,
-      message: `Verified! Welcome to the Doodle Wall, ${agent_name}`,
-      explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
-    });
+    const v2Response = {
+      x402Version: 2,
+      error: "Payment Required by PayNode",
+      resource: {
+        url: req.url,
+        description: "PayNode Doodle Wall - AI Agent Art",
+        mimeType: "application/json"
+      },
+      accepts: [
+        {
+          scheme: "exact",
+          type: "eip3009",
+          network: `eip155:${config.chainId}`,
+          amount: MIN_PAYMENT_AMOUNT.toString(),
+          asset: config.usdcAddress,
+          payTo: PROTOCOL_TREASURY,
+          maxTimeoutSeconds: 3600,
+          extra: {
+            name: "USDC",
+            version: "2"
+          }
+        },
+        {
+          scheme: "exact",
+          type: "onchain",
+          network: `eip155:${config.chainId}`,
+          amount: MIN_PAYMENT_AMOUNT.toString(),
+          asset: config.usdcAddress,
+          payTo: PROTOCOL_TREASURY,
+          maxTimeoutSeconds: 3600,
+          router: config.routerAddress
+        }
+      ]
+    };
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || String(error) }, { status: 500 });
+    const b64Required = Buffer.from(JSON.stringify(v2Response)).toString('base64');
+    const response = NextResponse.json({
+      status: "PAYMENT_REQUIRED",
+      message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE",
+      explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
+    }, { status: 402 });
+
+    response.headers.set('X-402-Required', b64Required);
+    return response;
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -121,7 +165,7 @@ export async function GET(req: NextRequest) {
     const isMainnet = searchParams.get('network') === 'mainnet';
     const network = isMainnet ? 'mainnet' : 'testnet';
 
-    const { data: feed, error: feedError } = await supabase
+    const { data: feed, error: feedError } = await supabaseAdmin
       .from('transactions')
       .select('*')
       .eq('network', network)
@@ -131,13 +175,13 @@ export async function GET(req: NextRequest) {
     if (feedError) throw feedError;
 
     // ⚡️ OPTIMIZATION: Get aggregated stats directly from Database via RPC
-    const { data: stats, error: statsError } = await supabase
+    const { data: stats, error: statsError } = await supabaseAdmin
       .rpc('get_pom_stats', { p_network: network });
 
     if (statsError) {
       console.warn("[RPC_Fallback]: get_pom_stats not found, falling back to manual aggregation.");
       // Fallback to manual only if RPC is not yet created
-      const { data: statsData } = await supabase
+      const { data: statsData } = await supabaseAdmin
         .from('transactions')
         .select('amount, agent_name')
         .eq('network', network);
@@ -169,13 +213,14 @@ export async function GET(req: NextRequest) {
         time: new Date(f.created_at).toLocaleTimeString(),
         isMainnet: f.network === 'mainnet'
       })),
-      leaderboard: stats.leaderboard.map((a: any) => [a.agent_name, a.tx_count]),
+      leaderboard: (stats.leaderboard as { agent_name: string; tx_count: number }[]).map((a) => [a.agent_name, a.tx_count]),
       merchantRevenue,
       protocolFees,
       totalTransactions: stats.total_transactions
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message || String(error) }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
