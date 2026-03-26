@@ -25,17 +25,32 @@ export async function POST(req: NextRequest) {
         store: {
           async checkAndSet(key: string) {
             // 🛡️ Proactive locking (matching main POM)
-            const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
-            if (existing) return false;
+            const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
+            
+            if (selectError) {
+              console.error("[Test_Idempotency_Select_Error]:", selectError.message);
+            }
 
-            const { error } = await supabaseAdmin.from('transactions').insert({
+            if (existing && existing.agent_name !== '_pending') {
+              console.warn(`[Test_Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name} for order ${existing.order_id}`);
+              return false; // Already consumed by a real agent
+            }
+
+            const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
               tx_hash: key,
-              amount: 0,
               agent_name: '_pending',
+              amount: 0,
+              merchant_address: PROTOCOL_TREASURY, // 🛡️ Fix Not-Null constraint
               network: isMainnet ? 'mainnet' : 'testnet',
-              order_id: orderId || 'test_pending'
-            });
-            return !error;
+              order_id: orderId || `test_pending_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            }, { onConflict: 'tx_hash' });
+
+            if (upsertError) {
+              console.error("[Test_Idempotency_Upsert_Fatal]:", upsertError.message, "Key:", key, "OrderId:", orderId);
+              return false;
+            }
+
+            return true;
           },
           async delete(key: string) {
             await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
@@ -69,6 +84,12 @@ export async function POST(req: NextRequest) {
         }, { status: 403 });
       }
 
+      // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
+      if (unifiedPayload.type === 'eip3009') {
+        const nonce = (unifiedPayload.payload as ExactEVMPayload).authorization.nonce;
+        await supabaseAdmin.from('transactions').delete().eq('tx_hash', nonce).eq('agent_name', '_pending');
+      }
+
       const payload = unifiedPayload.payload;
       const txHash = ('txHash' in payload && payload.txHash)
         ? payload.txHash
@@ -78,14 +99,14 @@ export async function POST(req: NextRequest) {
         ? payload.txHash
         : `eip3009:${(payload as ExactEVMPayload).signature.slice(0, 24)}...`;
 
-      await supabaseAdmin.from('transactions').insert({
+      await supabaseAdmin.from('transactions').upsert({
         agent_name: agent_name || 'X402_V2_TESTER',
         tx_hash: txHash,
         amount: 0.01,
         merchant_address: PROTOCOL_TREASURY,
         network: isMainnet ? 'mainnet' : 'testnet',
         order_id: orderId || `test_${Date.now()}`
-      });
+      }, { onConflict: 'tx_hash' });
 
       return NextResponse.json({
         success: true,

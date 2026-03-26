@@ -37,23 +37,37 @@ export async function POST(req: NextRequest) {
       const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
 
       const supabaseStore = {
-        async checkAndSet(key: string) {
-          // 🛡️ Proactive locking: Try to insert a pending record. 
-          // If it already exists (either pending or completed), it will fail due to unique constraint on tx_hash.
-          const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
-          if (existing) return false;
+          async checkAndSet(key: string) {
+            // 🛡️ Proactive locking: Upsert a pending record. 
+            // If it already exists and is NOT _pending, it's already consumed.
+            const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
+            
+            if (selectError) {
+              console.error("[Idempotency_Select_Error]:", selectError.message);
+            }
 
-          // Placeholder to "lock" the transaction hash early
-          const { error } = await supabaseAdmin.from('transactions').insert({
-            tx_hash: key,
-            amount: 0,
-            agent_name: '_pending',
-            network: isMainnet ? 'mainnet' : 'testnet',
-            order_id: orderId // Use current orderId to link the lock
-          });
-          
-          return !error;
-        },
+            if (existing && existing.agent_name !== '_pending') {
+              console.warn(`[Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name} for order ${existing.order_id}`);
+              return false; // Already consumed by a real agent
+            }
+
+            // Placeholder to "lock" or update the transaction hash early
+            const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
+              tx_hash: key,
+              agent_name: '_pending',
+              amount: 0,
+              merchant_address: PROTOCOL_TREASURY, // 🛡️ Fix Not-Null constraint
+              network: isMainnet ? 'mainnet' : 'testnet',
+              order_id: orderId || `pending_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            }, { onConflict: 'tx_hash' });
+            
+            if (upsertError) {
+              console.error("[Idempotency_Upsert_Fatal]:", upsertError.message, "Key:", key, "OrderId:", orderId);
+              return false;
+            }
+
+            return true;
+          },
         async delete(key: string): Promise<void> {
           // Cleanup the pending placeholder if verification fails
           await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
@@ -90,6 +104,12 @@ export async function POST(req: NextRequest) {
 
       if (!result.isValid) {
         return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
+      }
+
+      // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
+      if (unifiedPayload.type === 'eip3009') {
+        const nonce = (unifiedPayload.payload as any).authorization.nonce;
+        await supabaseAdmin.from('transactions').delete().eq('tx_hash', nonce).eq('agent_name', '_pending');
       }
 
       // 2. Persistent Storage (Verified Data Only) - Overwrites the pending placeholder

@@ -65,7 +65,7 @@ async function executeTransaction(agent_name: string, baseUrl: string) {
   const merchant = onchainReq.payTo;
   const amount = onchainReq.amount;
   const token = onchainReq.asset;
-  const orderId = `demo_${Date.now()}`;
+  const orderId = `demo_${Date.now()}_${ethers.hexlify(ethers.randomBytes(4))}`;
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(DEMO_PRIVATE_KEY!, provider);
