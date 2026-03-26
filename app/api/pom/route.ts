@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
       // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
       if (unifiedPayload.type === 'eip3009') {
-        const nonce = (unifiedPayload.payload as any).authorization.nonce;
+        const nonce = (unifiedPayload.payload as ExactEVMPayload).authorization.nonce;
         await supabaseAdmin.from('transactions').delete().eq('tx_hash', nonce).eq('agent_name', '_pending');
       }
 
