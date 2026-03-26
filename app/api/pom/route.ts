@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
       }
 
       const result = await verifier.verify(unifiedPayload, {
+        // NOTE: For the demo (Doodle Wall), we use the treasury address as the merchant.
+        // In a real merchant application, replace PROTOCOL_TREASURY with the merchant's wallet address.
         merchantAddress: PROTOCOL_TREASURY,
         tokenAddress: config.usdcAddress,
         amount: BigInt(MIN_PAYMENT_AMOUNT).toString(),
