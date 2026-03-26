@@ -40,12 +40,25 @@ export async function POST(req: NextRequest) {
 
       const supabaseStore = {
         async checkAndSet(key: string, _ttlSeconds: number) {
+          // 🛡️ Proactive locking: Try to insert a pending record. 
+          // If it already exists (either pending or completed), it will fail due to unique constraint on tx_hash.
           const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
-          return !existing;
+          if (existing) return false;
+
+          // Placeholder to "lock" the transaction hash early
+          const { error } = await supabaseAdmin.from('transactions').insert({
+            tx_hash: key,
+            amount: 0,
+            agent_name: '_pending',
+            network: isMainnet ? 'mainnet' : 'testnet',
+            order_id: orderId // Use current orderId to link the lock
+          });
+          
+          return !error;
         },
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         async delete(key: string): Promise<void> {
-          return;
+          // Cleanup the pending placeholder if verification fails
+          await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
         }
       };
 
@@ -81,21 +94,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
       }
 
-      // 2. Persistent Storage (Verified Data Only)
-      const txHash = 'txHash' in unifiedPayload.payload ? unifiedPayload.payload.txHash : unifiedPayload.payload.signature;
+      // 2. Persistent Storage (Verified Data Only) - Overwrites the pending placeholder
+      const txHash = 'txHash' in unifiedPayload.payload ? (unifiedPayload.payload as any).txHash : unifiedPayload.payload.signature;
       const { error: insertError } = await supabaseAdmin
         .from('transactions')
-        .insert({
+        .upsert({
           agent_name: agent_name || `Agent-${Math.floor(Math.random() * 1000)}`,
           tx_hash: txHash,
-          amount: MIN_PAYMENT_AMOUNT / 1e6,
+          amount: Number(BigInt(MIN_PAYMENT_AMOUNT).toString()) / 1e6,
           merchant_address: PROTOCOL_TREASURY,
           network: isMainnet ? 'mainnet' : 'testnet',
           order_id: orderId || `order_${Date.now()}`
-        });
+        }, { onConflict: 'tx_hash' });
 
       if (insertError) {
-        console.error("[Supabase_Insert_Error]:", insertError.message);
+        console.error("[Supabase_Upsert_Error]:", insertError.message);
         return NextResponse.json({ error: "INTERNAL_ERROR: Failed to save verified transaction." }, { status: 500 });
       }
 

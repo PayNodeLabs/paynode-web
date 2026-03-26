@@ -3,7 +3,6 @@ import { getNetworkConfig, PROTOCOL_TREASURY } from '../../pom/config';
 import { supabaseAdmin } from '../../pom/lib/supabase-admin';
 import { PayNodeVerifier } from '@paynodelabs/sdk-js';
 import type { UnifiedPaymentPayload, ExactEVMPayload } from '@paynodelabs/sdk-js';
-import { ethers } from 'ethers';
 
 interface EIP3009Payload extends ExactEVMPayload {
   extra?: Record<string, string>;
@@ -27,12 +26,21 @@ export async function POST(req: NextRequest) {
         contractAddress: config.routerAddress,
         store: {
           async checkAndSet(key: string, _ttlSeconds: number) {
+            // 🛡️ Proactive locking (matching main POM)
             const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
-            return !existing;
+            if (existing) return false;
+
+            const { error } = await supabaseAdmin.from('transactions').insert({
+              tx_hash: key,
+              amount: 0,
+              agent_name: '_pending',
+              network: isMainnet ? 'mainnet' : 'testnet',
+              order_id: orderId || 'test_pending'
+            });
+            return !error;
           },
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           async delete(key: string) {
-            return;
+            await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
           }
         },
         acceptedTokens: [config.usdcAddress]
@@ -63,14 +71,14 @@ export async function POST(req: NextRequest) {
         }, { status: 403 });
       }
 
-      const payload = unifiedPayload.payload as Record<string, unknown>;
+      const payload = unifiedPayload.payload as any;
       const txHash = typeof payload.txHash === 'string'
         ? payload.txHash
-        : ethers.id(String(payload.signature));
+        : `eip3009:${payload.signature.slice(0, 66)}`;
 
       const responseHash = typeof payload.txHash === 'string'
         ? payload.txHash
-        : ethers.id(String(payload.signature)).slice(0, 66);
+        : `eip3009:${payload.signature.slice(0, 24)}...`;
 
       await supabaseAdmin.from('transactions').insert({
         agent_name: agent_name || 'X402_V2_TESTER',

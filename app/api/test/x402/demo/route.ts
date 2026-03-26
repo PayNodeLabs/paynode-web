@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
         ...result,
-        txHash: (settlementTxHash || ethers.id(signature)).slice(0, 66),
+        txHash: (settlementTxHash || `eip3009:${signature.slice(0, 58)}`),
         standard: "x402-v2",
         payload_preview: { payer: wallet.address, nonce: nonce }
     });
