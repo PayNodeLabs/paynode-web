@@ -3,9 +3,7 @@ import { getNetworkConfig, PROTOCOL_TREASURY, MIN_PAYMENT_AMOUNT } from './confi
 import { supabaseAdmin } from './lib/supabase-admin';
 import type { UnifiedPaymentPayload, ExactEVMPayload } from '@paynodelabs/sdk-js';
 
-interface EIP3009Payload extends ExactEVMPayload {
-  extra?: Record<string, string>;
-}
+
 
 function isAllowedDomain(req: NextRequest) {
   const host = req.headers.get('host');
@@ -39,7 +37,7 @@ export async function POST(req: NextRequest) {
       const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
 
       const supabaseStore = {
-        async checkAndSet(key: string, _ttlSeconds: number) {
+        async checkAndSet(key: string) {
           // 🛡️ Proactive locking: Try to insert a pending record. 
           // If it already exists (either pending or completed), it will fail due to unique constraint on tx_hash.
           const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
@@ -95,7 +93,9 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. Persistent Storage (Verified Data Only) - Overwrites the pending placeholder
-      const txHash = 'txHash' in unifiedPayload.payload ? (unifiedPayload.payload as any).txHash : unifiedPayload.payload.signature;
+      const txHash = ('txHash' in unifiedPayload.payload && unifiedPayload.payload.txHash)
+        ? unifiedPayload.payload.txHash
+        : (unifiedPayload.payload as ExactEVMPayload).signature;
       const { error: insertError } = await supabaseAdmin
         .from('transactions')
         .upsert({

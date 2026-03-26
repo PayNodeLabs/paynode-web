@@ -4,9 +4,7 @@ import { supabaseAdmin } from '../../pom/lib/supabase-admin';
 import { PayNodeVerifier } from '@paynodelabs/sdk-js';
 import type { UnifiedPaymentPayload, ExactEVMPayload } from '@paynodelabs/sdk-js';
 
-interface EIP3009Payload extends ExactEVMPayload {
-  extra?: Record<string, string>;
-}
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +23,7 @@ export async function POST(req: NextRequest) {
         chainId: config.chainId,
         contractAddress: config.routerAddress,
         store: {
-          async checkAndSet(key: string, _ttlSeconds: number) {
+          async checkAndSet(key: string) {
             // 🛡️ Proactive locking (matching main POM)
             const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
             if (existing) return false;
@@ -71,14 +69,14 @@ export async function POST(req: NextRequest) {
         }, { status: 403 });
       }
 
-      const payload = unifiedPayload.payload as any;
-      const txHash = typeof payload.txHash === 'string'
+      const payload = unifiedPayload.payload;
+      const txHash = ('txHash' in payload && payload.txHash)
         ? payload.txHash
-        : `eip3009:${payload.signature.slice(0, 66)}`;
+        : `eip3009:${(payload as ExactEVMPayload).signature.slice(0, 66)}`;
 
-      const responseHash = typeof payload.txHash === 'string'
+      const responseHash = ('txHash' in payload && payload.txHash)
         ? payload.txHash
-        : `eip3009:${payload.signature.slice(0, 24)}...`;
+        : `eip3009:${(payload as ExactEVMPayload).signature.slice(0, 24)}...`;
 
       await supabaseAdmin.from('transactions').insert({
         agent_name: agent_name || 'X402_V2_TESTER',
