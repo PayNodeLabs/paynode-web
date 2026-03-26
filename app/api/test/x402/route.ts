@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         chainId: config.chainId,
         contractAddress: config.routerAddress,
         store: {
-          async checkAndSet(key: string) {
+          async checkAndSet(key: string, _ttlSeconds: number) {
             const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
             return !existing;
           },
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         tokenAddress: config.usdcAddress,
         amount: "10000",
         orderId: orderId
-      }, unifiedPayload.type === 'eip3009' ? (unifiedPayload.payload as EIP3009Payload)?.extra : {});
+      }, unifiedPayload.type === 'eip3009' ? { name: "USD Coin", version: "2" } : {});
 
       if (!verification.isValid) {
         return NextResponse.json({

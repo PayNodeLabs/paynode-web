@@ -7,7 +7,8 @@ import { supabaseAdmin } from '../../../pom/lib/supabase-admin';
  * NEW X402 V2 SPECIFIC DEMO (Standalone)
  * This is a separate endpoint for testing the new V2 standard compatibility.
  */
-const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY || "0x47e171e0ec23374952d35540a36922055655a0ce0a6b1612a322e859392e4627";
+const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+if (!DEMO_PRIVATE_KEY) throw new Error("DEMO_FAUCET_KEY environment variable is required");
 const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrls[0];
 
 export async function POST(req: NextRequest) {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Client-side signing (Real key)
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(DEMO_PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(DEMO_PRIVATE_KEY!, provider);
 
     const domain = {
       name: requirement.extra.name || "USD Coin",

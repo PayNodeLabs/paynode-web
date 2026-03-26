@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
 
       const supabaseStore = {
-        async checkAndSet(key: string) {
+        async checkAndSet(key: string, _ttlSeconds: number) {
           const { data: existing } = await supabaseAdmin.from('transactions').select('id').eq('tx_hash', key).maybeSingle();
           return !existing;
         },
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         tokenAddress: config.usdcAddress,
         amount: BigInt(MIN_PAYMENT_AMOUNT).toString(),
         orderId: orderId
-      }, unifiedPayload.type === 'eip3009' ? (unifiedPayload.payload as EIP3009Payload)?.extra : {});
+      }, unifiedPayload.type === 'eip3009' ? { name: "USD Coin", version: "2" } : {});
 
       if (!result.isValid) {
         return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           payTo: PROTOCOL_TREASURY,
           maxTimeoutSeconds: 3600,
           extra: {
-            name: "USDC",
+            name: "USD Coin",
             version: "2"
           }
         },
@@ -142,14 +142,16 @@ export async function POST(req: NextRequest) {
       ]
     };
 
+    const newOrderId = `pom_${Date.now()}`;
     const b64Required = Buffer.from(JSON.stringify(v2Response)).toString('base64');
     const response = NextResponse.json({
       status: "PAYMENT_REQUIRED",
       message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE",
       explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
     }, { status: 402 });
-
+    
     response.headers.set('X-402-Required', b64Required);
+    response.headers.set('X-402-Order-Id', newOrderId);
     return response;
 
   } catch (error) {

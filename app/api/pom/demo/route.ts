@@ -8,7 +8,8 @@ export const maxDuration = 15;
 let executionQueue: Promise<unknown> = Promise.resolve();
 let nextNonce: number | null = null;
 
-const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY || "0x47e171e0ec23374952d35540a36922055655a0ce0a6b1612a322e859392e4627";
+const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+if (!DEMO_PRIVATE_KEY) throw new Error("DEMO_FAUCET_KEY environment variable is required");
 const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrls[0];
 
 const ROUTER_ABI = ["function pay(address token, address merchant, uint256 amount, bytes32 orderId) public"];
@@ -67,7 +68,7 @@ async function executeTransaction(agent_name: string, baseUrl: string) {
   const orderId = `demo_${Date.now()}`;
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(DEMO_PRIVATE_KEY, provider);
+  const wallet = new ethers.Wallet(DEMO_PRIVATE_KEY!, provider);
 
   if (nextNonce === null) {
     nextNonce = await provider.getTransactionCount(wallet.address, "pending");
