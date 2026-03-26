@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     const signature = await wallet.signTypedData(domain, types, authorization);
 
     // 3. Construct Payload
-    const orderId = `eip3009_demo_${Date.now()}`;
+    const orderId = `eip3009_demo_${Date.now()}_${ethers.hexlify(ethers.randomBytes(4))}`;
     const unifiedPayload = {
       version: "3.1",
       type: "eip3009",
@@ -94,6 +94,16 @@ export async function POST(req: NextRequest) {
     });
 
     const result = await finalRes.json();
+
+    if (!finalRes.ok || result.error || result.success === false) {
+       console.error("[Demo_Verification_Failed]:", result.errorReason || result.error);
+       return NextResponse.json({
+          ...result,
+          txHash: `eip3009_failed:${nonce.slice(0, 16)}`,
+          standard: "x402-v2",
+          payload_preview: { payer: wallet.address, nonce: nonce }
+       }, { status: finalRes.status });
+    }
 
     let settlementTxHash = null;
     try {
