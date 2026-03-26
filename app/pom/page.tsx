@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,7 +15,7 @@ import {
   TrendingUp,
   Cpu
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Black_Ops_One,
   Orbitron,
@@ -48,7 +48,9 @@ function POMExplorerContent() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<"onchain" | "eip3009">("eip3009");
   const logEndRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [kingTrigger, setKingTrigger] = useState(0);
 
   const [data, setData] = useState<{
@@ -67,7 +69,7 @@ function POMExplorerContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   // 1. Initial Data Fetch
-  const fetchData = async (silent = false) => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) {
         setIsLoading(true);
@@ -83,12 +85,12 @@ function POMExplorerContent() {
       const res = await fetch(`/api/pom?network=${network}`);
       const json = await res.json();
       setData(json);
-    } catch (e) {
-      console.error("Fetch error:", e);
+    } catch (error) {
+      console.error("Fetch error:", error);
     } finally {
       if (!silent) setIsLoading(false);
     }
-  };
+  }, [isMainnet]);
 
   // 2. Setup Realtime Subscription
   useEffect(() => {
@@ -114,7 +116,7 @@ function POMExplorerContent() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isMainnet]);
+  }, [isMainnet, fetchData]);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -125,26 +127,34 @@ function POMExplorerContent() {
 
   const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString().split(' ')[0]}] ${msg}`]);
 
-  const runDemo = async (retryCount = 0) => {
+  const runDemo = async (method: "onchain" | "eip3009", retryCount = 0) => {
     if (!agentName || (isExecuting && retryCount === 0) || cooldown > 0) return;
 
     if (retryCount === 0) {
       setIsExecuting(true);
+      setPaymentMethod(method);
       setLogs([]);
       addLog(`INITIATING_AUTONOMOUS_CALL: target=POST /api/pom`);
+      addLog(`PAYMENT_METHOD: ${method === "eip3009" ? "EIP-3009 (Off-chain ~50ms)" : "On-chain (Router.pay ~2s)"}`);
     }
 
     try {
       if (retryCount === 0) {
         await new Promise(r => setTimeout(r, 800));
         addLog(`HTTP 402 PAYMENT_REQUIRED`);
-        addLog(`PayNode_SDK: Parsing protocol headers...`);
+        addLog(`PayNode_SDK: Parsing X-402-Required discovery payload...`);
       }
 
       await new Promise(r => setTimeout(r, 1200));
-      addLog(`Base_L2: Attempting On-Chain Settlement...`);
+      
+      if (method === "eip3009") {
+        addLog(`Base_L2: Signing TransferWithAuthorization (EIP-3009)...`);
+      } else {
+        addLog(`Base_L2: Attempting On-Chain Settlement...`);
+      }
 
-      const res = await fetch(`/api/pom/demo`, {
+      const endpoint = method === "eip3009" ? "/api/test/x402/demo" : "/api/pom/demo";
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_name: agentName })
@@ -154,7 +164,7 @@ function POMExplorerContent() {
 
       if (res.ok && !result.error) {
         addLog(`TX_CONFIRMED: ${result.txHash.slice(0, 16)}...`);
-        addLog(`PayNode_SDK: Retrying with receipt...`);
+        addLog(`PayNode_SDK: Submitting X-402-Payload...`);
         await new Promise(r => setTimeout(r, 800));
         addLog(`SUCCESS: Matrix access granted to ${agentName}.`);
         setAgentName("");
@@ -163,11 +173,11 @@ function POMExplorerContent() {
       } else if (res.status === 429 && retryCount < 3) {
         addLog(`SYSTEM: Network congested. Retrying... (Nonce Collision avoidance)`);
         await new Promise(r => setTimeout(r, 2000 * (retryCount + 1)));
-        return runDemo(retryCount + 1);
+        return runDemo(method, retryCount + 1);
       } else {
         addLog(`ERROR: ${result.error || "Execution failed"}`);
       }
-    } catch (e) {
+    } catch {
       addLog(`ERROR: Connection failed.`);
     } finally {
       if (retryCount === 0 || !isExecuting) setIsExecuting(false);
@@ -581,13 +591,36 @@ function POMExplorerContent() {
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20"><Cpu size={20} /></div>
                   </div>
 
-                  <button
-                    onClick={() => runDemo(0)}
-                    disabled={!agentName || isExecuting || cooldown > 0}
-                    className={`w-full py-5 rounded-2xl text-base font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border ${!agentName || isExecuting || cooldown > 0 ? 'bg-gray-900/50 text-gray-700 border-white/5' : 'bg-orange-600 text-black border-orange-400 hover:scale-[1.02] active:scale-95 shadow-[0_15px_40px_rgba(249,115,22,0.3)]'}`}
-                  >
-                    {isExecuting ? <RefreshCw size={20} className="animate-spin" /> : cooldown > 0 ? `SYNC_COOLDOWN: ${cooldown}S` : "INITIALIZE_CALL_SEQUENCE"}
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => runDemo("eip3009")}
+                      disabled={!agentName || isExecuting || cooldown > 0}
+                      className={`py-4 rounded-2xl text-sm font-bold transition-all flex flex-col items-center gap-1 border ${
+                        !agentName || isExecuting || cooldown > 0
+                          ? 'bg-gray-900/50 text-gray-700 border-white/5'
+                          : paymentMethod === "eip3009" && isExecuting
+                            ? 'bg-[#00ff88] text-black border-[#00ff88]'
+                            : 'bg-[#00ff88]/10 border-[#00ff88]/30 text-[#00ff88] hover:bg-[#00ff88]/20'
+                      }`}
+                    >
+                      <span>EIP-3009</span>
+                      <span className="text-xs opacity-70">Off-chain • ~50ms</span>
+                    </button>
+                    <button
+                      onClick={() => runDemo("onchain")}
+                      disabled={!agentName || isExecuting || cooldown > 0}
+                      className={`py-4 rounded-2xl text-sm font-bold transition-all flex flex-col items-center gap-1 border ${
+                        !agentName || isExecuting || cooldown > 0
+                          ? 'bg-gray-900/50 text-gray-700 border-white/5'
+                          : paymentMethod === "onchain" && isExecuting
+                            ? 'bg-blue-500 text-black border-blue-500'
+                            : 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20'
+                      }`}
+                    >
+                      <span>On-chain</span>
+                      <span className="text-xs opacity-70">Router.pay() • ~2s</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-8 bg-[#0a0a0a] rounded-2xl border border-white/5 p-6 font-mono text-xs h-[240px] overflow-y-auto shadow-inner custom-scrollbar">
@@ -634,14 +667,21 @@ function POMExplorerContent() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <div className="text-xs text-[#00ff88] font-bold mb-1">{tx.agent}</div>
-                        <a
-                          href={`https://${tx.isMainnet ? '' : 'sepolia.'}basescan.org/tx/${tx.txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-mono text-gray-500 break-all hover:text-[#00ff88] transition-colors decoration-dotted hover:underline"
-                        >
-                          {tx.txHash}
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`https://${tx.isMainnet ? '' : 'sepolia.'}basescan.org/tx/${tx.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-mono text-gray-500 break-all hover:text-[#00ff88] transition-colors decoration-dotted hover:underline"
+                          >
+                            {tx.txHash.slice(0, 20)}...{tx.txHash.slice(-8)}
+                          </a>
+                          {tx.txHash.length === 66 && tx.txHash.startsWith('0x') && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+                              VERIFIED
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-[10px] text-gray-600 font-mono">{tx.time}</div>
                     </div>
