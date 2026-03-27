@@ -73,6 +73,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `invalid_receipt: ${result.error?.message}` }, { status: 400 });
       }
 
+      // Background Settlement Logic (Auto-Settle)
+      const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+      if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY) {
+        const { settleTransferWithAuthorization } = await import('./lib/settle-payment');
+        const payload = unifiedPayload.payload as ExactEVMPayload;
+        
+        // Fire and forget (Asynchronous settlement in background)
+        settleTransferWithAuthorization(payload.signature, payload.authorization, {
+          rpcUrl: config.rpcUrls[0],
+          tokenAddress: config.usdcAddress,
+          privateKey: DEMO_PRIVATE_KEY
+        }).then(async (realTxHash) => {
+          // Once confirmed on-chain, update the DB record from signature hash to real tx hash
+          await supabaseAdmin.from('transactions').update({ tx_hash: realTxHash }).eq('order_id', orderId);
+          console.log(`[AutoSettle] Successfully collected funds for order ${orderId}. Tx: ${realTxHash}`);
+        }).catch((err) => {
+          console.error(`[AutoSettle_Error] Failed to collect for order ${orderId}:`, err.message);
+        });
+      }
+
       // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
       if (unifiedPayload.type === 'eip3009') {
         const nonce = (unifiedPayload.payload as ExactEVMPayload).authorization.nonce;
@@ -82,7 +102,7 @@ export async function POST(req: NextRequest) {
       // 2. Persistent Storage (Verified Data Only) - Overwrites the pending placeholder
       const txHash = ('txHash' in unifiedPayload.payload && unifiedPayload.payload.txHash)
         ? unifiedPayload.payload.txHash
-        : (unifiedPayload.payload as ExactEVMPayload).signature;
+        : `auth:${Buffer.from(JSON.stringify(unifiedPayload)).toString('base64')}`;
       const { error: insertError } = await supabaseAdmin
         .from('transactions')
         .upsert({
@@ -115,8 +135,9 @@ export async function POST(req: NextRequest) {
         network: `eip155:${config.chainId}`,
         payer: payer
       });
-      successResponse.headers.set('PAYMENT-RESPONSE', settlementInfo);
-      successResponse.headers.set('X-PAYMENT-RESPONSE', settlementInfo);
+      const b64Settlement = Buffer.from(settlementInfo).toString('base64');
+      successResponse.headers.set('PAYMENT-RESPONSE', b64Settlement);
+      successResponse.headers.set('X-PAYMENT-RESPONSE', b64Settlement);
       successResponse.headers.set('x-paynode-receipt', txHash);
       successResponse.headers.set('x-paynode-order-id', orderId || "");
       
@@ -161,6 +182,7 @@ export async function POST(req: NextRequest) {
     const newOrderId = `pom_${Date.now()}`;
     const b64Required = Buffer.from(JSON.stringify(v2Response)).toString('base64');
     const response = NextResponse.json({
+      ...v2Response,
       status: "PAYMENT_REQUIRED",
       message: isMainnet ? "MAINNET DOGFOODING ACTIVE" : "SANDBOX TESTING ACTIVE",
       explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
@@ -215,7 +237,13 @@ export async function GET(req: NextRequest) {
       const totalAmt = statsData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
 
       return NextResponse.json({
-        feed: feed.map(f => ({ agent: f.agent_name, txHash: f.tx_hash, time: new Date(f.created_at).toLocaleTimeString(), isMainnet: f.network === 'mainnet' })),
+        feed: feed.map(f => ({ 
+          agent: f.agent_name, 
+          txHash: f.tx_hash, 
+          time: new Date(f.created_at).toLocaleTimeString(), 
+          isMainnet: f.network === 'mainnet',
+          orderId: f.order_id
+        })),
         leaderboard,
         merchantRevenue: (totalAmt * 0.99).toFixed(4),
         protocolFees: (totalAmt * 0.01).toFixed(6),
@@ -233,7 +261,8 @@ export async function GET(req: NextRequest) {
         agent: f.agent_name,
         txHash: f.tx_hash,
         time: new Date(f.created_at).toLocaleTimeString(),
-        isMainnet: f.network === 'mainnet'
+        isMainnet: f.network === 'mainnet',
+        orderId: f.order_id
       })),
       leaderboard: (stats.leaderboard as { agent_name: string; tx_count: number }[]).map((a) => [a.agent_name, a.tx_count]),
       merchantRevenue,

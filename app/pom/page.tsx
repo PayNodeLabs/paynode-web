@@ -36,6 +36,7 @@ interface FeedItem {
   txHash: string;
   time: string;
   isMainnet: boolean;
+  orderId?: string;
 }
 
 function POMExplorerContent() {
@@ -101,7 +102,7 @@ function POMExplorerContent() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'transactions',
           filter: `network=eq.${isMainnet ? 'mainnet' : 'testnet'}`
@@ -117,6 +118,29 @@ function POMExplorerContent() {
       supabase.removeChannel(channel);
     };
   }, [isMainnet, fetchData]);
+
+  const settleManual = async (orderId: string) => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/pom/settle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+      const result = await res.json();
+      if (res.ok) {
+        alert(`Settlement successful! Tx: ${result.txHash}`);
+        fetchData(true);
+      } else {
+        alert(`Settlement failed: ${result.error || result.message}`);
+      }
+    } catch (err) {
+      alert('Connection error during settlement.');
+    } finally {
+      setIsLoading(false);
+      fetchData(true);
+    }
+  };
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -669,16 +693,21 @@ function POMExplorerContent() {
                         <div className="text-xs text-[#00ff88] font-bold mb-1">{tx.agent}</div>
                         <div className="flex items-center gap-2">
                           <a
-                            href={`https://${tx.isMainnet ? '' : 'sepolia.'}basescan.org/tx/${tx.txHash}`}
-                            target="_blank"
+                            href={tx.txHash.startsWith('auth:') ? '#' : `https://${tx.isMainnet ? '' : 'sepolia.'}basescan.org/tx/${tx.txHash}`}
+                            target={tx.txHash.startsWith('auth:') ? '_self' : '_blank'}
                             rel="noopener noreferrer"
                             className="text-[10px] font-mono text-gray-500 break-all hover:text-[#00ff88] transition-colors decoration-dotted hover:underline"
                           >
-                            {tx.txHash.slice(0, 20)}...{tx.txHash.slice(-8)}
+                            {tx.txHash.startsWith('auth:') ? `SIG_HASH: ${tx.txHash.slice(5, 25)}...` : `${tx.txHash.slice(0, 20)}...${tx.txHash.slice(-8)}`}
                           </a>
                           {tx.txHash.length === 66 && tx.txHash.startsWith('0x') && (
                             <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
-                              VERIFIED
+                              SETTLED
+                            </span>
+                          )}
+                          {tx.txHash.startsWith('auth:') && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 font-mono animate-pulse">
+                              SETTLING...
                             </span>
                           )}
                         </div>
@@ -693,6 +722,14 @@ function POMExplorerContent() {
                         1% → PROTOCOL
                       </div>
                     </div>
+                    {(tx.txHash.startsWith('auth:') || tx.txHash.startsWith('eip3009:')) && tx.orderId && (
+                      <button
+                        onClick={() => settleManual(tx.orderId!)}
+                        className="mt-4 w-full py-2 bg-[#00ff88] text-black text-[10px] font-black uppercase tracking-widest hover:bg-[#00ff88]/80 transition-all flex items-center justify-center gap-2"
+                      >
+                         Collect Money Now (Broadcast to Chain)
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

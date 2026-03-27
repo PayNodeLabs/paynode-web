@@ -419,10 +419,10 @@
   resolved "https://registry.npmjs.org/@nolyfill/is-core-module/-/is-core-module-1.0.39.tgz"
   integrity sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==
 
-"@paynodelabs/sdk-js@^2.2.0":
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/@paynodelabs/sdk-js/-/sdk-js-2.2.0.tgz#74fbe720af22a94ef503197c4e4c66e5b5ba4551"
-  integrity sha512-MNSw4x8WKcH9cQnwww/p/+dkprxrrfaTDmSnaKqe5vQ9fJKrFhEbNdyxUoCoetdO8IIkh1bmkfvZEFWcGzPkqQ==
+"@paynodelabs/sdk-js@2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@paynodelabs/sdk-js/-/sdk-js-2.2.1.tgz#f492f883e2b22bce73c8e19e0d7ece34daa886f2"
+  integrity sha512-bDz7PXYpKp3Xifc1g3UBCb+rzpq1vj4ixs3WZGsbOgohhqE/ScHxV+I+33qcbkkKQWhL3+rEoYCWSkNmmzAusg==
   dependencies:
     ethers "^6.13.0"
     ioredis "^5.10.1"

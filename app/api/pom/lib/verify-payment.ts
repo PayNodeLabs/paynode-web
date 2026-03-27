@@ -56,7 +56,7 @@ export function parseUnifiedPayload(v2PayloadHeader: string, orderId: string | n
     // Handle Official X402 V2 format mapping
     if (parsed.x402Version === 2 && parsed.accepted) {
         return {
-            version: "2.2.0",
+            version: "2.2.1",
             type: parsed._paynode?.type || (parsed.accepted.extra?.name === "USD Coin" ? 'eip3009' : 'onchain'),
             orderId: parsed._paynode?.orderId || orderId || "",
             payload: parsed.payload
