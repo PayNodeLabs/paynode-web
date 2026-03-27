@@ -1,5 +1,4 @@
 import { ethers, JsonRpcProvider } from 'ethers';
-import { supabaseAdmin } from './supabase-admin';
 
 export interface SettleOptions {
     rpcUrl: string;

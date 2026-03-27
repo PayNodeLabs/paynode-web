@@ -134,7 +134,7 @@ function POMExplorerContent() {
       } else {
         alert(`Settlement failed: ${result.error || result.message}`);
       }
-    } catch (err) {
+    } catch {
       alert('Connection error during settlement.');
     } finally {
       setIsLoading(false);
