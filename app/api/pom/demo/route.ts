@@ -99,7 +99,7 @@ async function executeTransaction(agent_name: string, baseUrl: string, DEMO_PRIV
   const receipt = await payTx.wait();
 
   const unifiedPayload = {
-    version: "2.2.0",
+    version: "2.2.1",
     type: "onchain",
     orderId: orderId,
     payload: { txHash: receipt.hash }

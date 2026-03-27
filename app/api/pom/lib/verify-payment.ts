@@ -63,9 +63,15 @@ export function parseUnifiedPayload(v2PayloadHeader: string, orderId: string | n
     
     // Handle Official X402 V2 format mapping
     if (parsed.x402Version === 2 && parsed.accepted) {
+        // Infer type from payload content if _paynode.type is missing
+        let inferredType: "onchain" | "eip3009" = "onchain";
+        if (parsed.payload?.signature || parsed.payload?.authorization) {
+            inferredType = "eip3009";
+        }
+
         return {
             version: "2.2.1",
-            type: parsed._paynode?.type || (parsed.accepted.extra?.name === "USD Coin" ? 'eip3009' : 'onchain'),
+            type: parsed._paynode?.type || inferredType,
             orderId: parsed._paynode?.orderId || orderId || "",
             payload: parsed.payload
         };

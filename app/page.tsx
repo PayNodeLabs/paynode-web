@@ -634,8 +634,8 @@ app.add_middleware(
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
             {`from paynode_sdk import PayNodeAgentClient
 
-# Default is Mainnet. For Sandbox, pass rpc_url:
-# agent = PayNodeAgentClient(private_key="0x...", rpc_url="https://sepolia.base.org")
+# Default is Mainnet. For Sandbox, pass rpc_urls:
+# agent = PayNodeAgentClient(private_key="0x...", rpc_urls=["https://sepolia.base.org"])
 agent = PayNodeAgentClient(private_key="0x...")
 
 # Auto-selects EIP-3009 or On-chain

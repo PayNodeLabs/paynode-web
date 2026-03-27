@@ -161,6 +161,16 @@ export async function POST(req: NextRequest) {
       accepts: [
         {
           scheme: "exact",
+          type: "onchain",
+          network: `eip155:${config.chainId}`,
+          amount: MIN_PAYMENT_AMOUNT.toString(),
+          asset: config.usdcAddress,
+          payTo: PROTOCOL_TREASURY,
+          maxTimeoutSeconds: 3600,
+          router: config.routerAddress
+        },
+        {
+          scheme: "exact",
           type: "eip3009",
           network: `eip155:${config.chainId}`,
           amount: MIN_PAYMENT_AMOUNT.toString(),
@@ -171,16 +181,6 @@ export async function POST(req: NextRequest) {
             name: "USD Coin",
             version: "2"
           }
-        },
-        {
-          scheme: "exact",
-          type: "onchain",
-          network: `eip155:${config.chainId}`,
-          amount: MIN_PAYMENT_AMOUNT.toString(),
-          asset: config.usdcAddress,
-          payTo: PROTOCOL_TREASURY,
-          maxTimeoutSeconds: 3600,
-          router: config.routerAddress
         }
       ]
     };
