@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNetworkConfig, PROTOCOL_TREASURY } from '../../pom/config';
+import { getNetworkConfig, PROTOCOL_TREASURY, MIN_PAYMENT_AMOUNT } from '../../pom/config';
 import { supabaseAdmin } from '../../pom/lib/supabase-admin';
-import { PayNodeVerifier } from '@paynodelabs/sdk-js';
 import type { UnifiedPaymentPayload, ExactEVMPayload } from '@paynodelabs/sdk-js';
 
 
@@ -14,56 +13,26 @@ export async function POST(req: NextRequest) {
     const config = getNetworkConfig(isMainnet);
     const networkId = `eip155:${config.chainId}`;
 
-    const v2PayloadHeader = req.headers.get('X-402-Payload');
+    const v2PayloadHeader = req.headers.get('PAYMENT-SIGNATURE') || req.headers.get('X-402-Payload');
     const orderId = req.headers.get('X-402-Order-Id');
 
     if (v2PayloadHeader) {
-      const verifier = new PayNodeVerifier({
+      const { getPayNodeVerifier, parseUnifiedPayload } = await import('../../pom/lib/verify-payment');
+      
+      const verifier = await getPayNodeVerifier({
         rpcUrls: config.rpcUrls,
         chainId: config.chainId,
-        contractAddress: config.routerAddress,
-        store: {
-          async checkAndSet(key: string) {
-            // 🛡️ Proactive locking (matching main POM)
-            const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
-            
-            if (selectError) {
-              console.error("[Test_Idempotency_Select_Error]:", selectError.message);
-            }
-
-            if (existing && existing.agent_name !== '_pending') {
-              console.warn(`[Test_Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name} for order ${existing.order_id}`);
-              return false; // Already consumed by a real agent
-            }
-
-            const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
-              tx_hash: key,
-              agent_name: '_pending',
-              amount: 0,
-              merchant_address: PROTOCOL_TREASURY, // 🛡️ Fix Not-Null constraint
-              network: isMainnet ? 'mainnet' : 'testnet',
-              order_id: orderId || `test_pending_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-            }, { onConflict: 'tx_hash' });
-
-            if (upsertError) {
-              console.error("[Test_Idempotency_Upsert_Fatal]:", upsertError.message, "Key:", key, "OrderId:", orderId);
-              return false;
-            }
-
-            return true;
-          },
-          async delete(key: string) {
-            await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
-          }
-        },
-        acceptedTokens: [config.usdcAddress]
+        routerAddress: config.routerAddress,
+        usdcAddress: config.usdcAddress,
+        isMainnet: isMainnet,
+        orderId: orderId
       });
 
       let unifiedPayload: UnifiedPaymentPayload;
       try {
-        unifiedPayload = JSON.parse(Buffer.from(v2PayloadHeader, 'base64').toString());
+        unifiedPayload = parseUnifiedPayload(v2PayloadHeader, orderId);
       } catch {
-        return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode X-402-Payload header." }, { status: 400 });
+        return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode payment signature header." }, { status: 400 });
       }
 
       if (!orderId) {
@@ -73,7 +42,7 @@ export async function POST(req: NextRequest) {
       const verification = await verifier.verify(unifiedPayload, {
         merchantAddress: PROTOCOL_TREASURY,
         tokenAddress: config.usdcAddress,
-        amount: "10000",
+        amount: MIN_PAYMENT_AMOUNT.toString(), // Protocol minimum
         orderId: orderId
       }, unifiedPayload.type === 'eip3009' ? { name: "USD Coin", version: "2" } : {});
 
@@ -102,20 +71,34 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from('transactions').upsert({
         agent_name: agent_name || 'X402_V2_TESTER',
         tx_hash: txHash,
-        amount: 0.01,
+        amount: Number(MIN_PAYMENT_AMOUNT) / 1000000,
         merchant_address: PROTOCOL_TREASURY,
         network: isMainnet ? 'mainnet' : 'testnet',
         order_id: orderId || `test_${Date.now()}`
       }, { onConflict: 'tx_hash' });
 
-      return NextResponse.json({
+      const successResponse = NextResponse.json({
         success: true,
         transaction: responseHash,
         agent_name: agent_name || 'X402_V2_TESTER',
         network: networkId
       });
+
+      // Add Settlement Confirmation Headers (V2 Standard)
+      const payer = ('authorization' in unifiedPayload.payload) ? (unifiedPayload.payload as ExactEVMPayload).authorization.from : undefined;
+      const settlementInfo = JSON.stringify({
+        success: true,
+        transaction: txHash,
+        network: networkId,
+        payer: payer
+      });
+      successResponse.headers.set('PAYMENT-RESPONSE', settlementInfo);
+      successResponse.headers.set('X-PAYMENT-RESPONSE', settlementInfo);
+
+      return successResponse;
     }
 
+    const newOrderId = `test_x402_${Date.now()}`;
     const v2Response = {
       x402Version: 2,
       error: "X-402-Payload header is required",
@@ -129,7 +112,7 @@ export async function POST(req: NextRequest) {
           scheme: "exact",
           type: "eip3009",
           network: networkId,
-          amount: "10000",
+          amount: MIN_PAYMENT_AMOUNT.toString(),
           asset: config.usdcAddress,
           payTo: PROTOCOL_TREASURY,
           maxTimeoutSeconds: 600,
@@ -142,7 +125,7 @@ export async function POST(req: NextRequest) {
           scheme: "exact",
           type: "onchain",
           network: networkId,
-          amount: "10000",
+          amount: MIN_PAYMENT_AMOUNT.toString(),
           asset: config.usdcAddress,
           payTo: PROTOCOL_TREASURY,
           maxTimeoutSeconds: 600,
@@ -153,8 +136,11 @@ export async function POST(req: NextRequest) {
 
     const b64Required = Buffer.from(JSON.stringify(v2Response)).toString('base64');
     const response = NextResponse.json(v2Response, { status: 402 });
+    response.headers.set('PAYMENT-REQUIRED', b64Required);
     response.headers.set('X-402-Required', b64Required);
+    response.headers.set('X-402-Order-Id', newOrderId);
     return response;
+
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
