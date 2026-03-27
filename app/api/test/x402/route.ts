@@ -53,6 +53,23 @@ export async function POST(req: NextRequest) {
         }, { status: 403 });
       }
 
+      // Background Settlement Logic (Auto-Settle)
+      const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+      if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY) {
+        const { settleTransferWithAuthorization } = await import('../../pom/lib/settle-payment');
+        const payload = unifiedPayload.payload as ExactEVMPayload;
+        settleTransferWithAuthorization(payload.signature, payload.authorization, {
+          rpcUrl: config.rpcUrls[0],
+          tokenAddress: config.usdcAddress,
+          privateKey: DEMO_PRIVATE_KEY
+        }).then(async (realTxHash) => {
+          await supabaseAdmin.from('transactions').update({ tx_hash: realTxHash }).eq('order_id', orderId);
+          console.log(`[AutoSettle-Test] Successfully collected funds for order ${orderId}. Tx: ${realTxHash}`);
+        }).catch((err) => {
+          console.error(`[AutoSettle-Test_Error] Failed to collect for order ${orderId}:`, err.message);
+        });
+      }
+
       // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
       if (unifiedPayload.type === 'eip3009') {
         const nonce = (unifiedPayload.payload as ExactEVMPayload).authorization.nonce;
@@ -62,7 +79,7 @@ export async function POST(req: NextRequest) {
       const payload = unifiedPayload.payload;
       const txHash = ('txHash' in payload && payload.txHash)
         ? payload.txHash
-        : `eip3009:${(payload as ExactEVMPayload).signature.slice(0, 66)}`;
+        : `auth:${Buffer.from(JSON.stringify(unifiedPayload)).toString('base64')}`;
 
       const responseHash = ('txHash' in payload && payload.txHash)
         ? payload.txHash
@@ -92,8 +109,9 @@ export async function POST(req: NextRequest) {
         network: networkId,
         payer: payer
       });
-      successResponse.headers.set('PAYMENT-RESPONSE', settlementInfo);
-      successResponse.headers.set('X-PAYMENT-RESPONSE', settlementInfo);
+      const b64Settlement = Buffer.from(settlementInfo).toString('base64');
+      successResponse.headers.set('PAYMENT-RESPONSE', b64Settlement);
+      successResponse.headers.set('X-PAYMENT-RESPONSE', b64Settlement);
 
       return successResponse;
     }
