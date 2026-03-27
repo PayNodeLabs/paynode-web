@@ -3,13 +3,11 @@ import { ethers } from 'ethers';
 import { BASE_SEPOLIA_CONFIG } from '../config';
 import type { PaymentRequirements } from '@paynodelabs/sdk-js';
 
-export const maxDuration = 15;
+export const maxDuration = 30;
 
 let executionQueue: Promise<unknown> = Promise.resolve();
 let nextNonce: number | null = null;
 
-const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
-if (!DEMO_PRIVATE_KEY) throw new Error("DEMO_FAUCET_KEY environment variable is required");
 const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrls[0];
 
 const ROUTER_ABI = ["function pay(address token, address merchant, uint256 amount, bytes32 orderId) public"];
@@ -19,13 +17,23 @@ const ERC20_ABI = [
 ];
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+  if (!DEMO_PRIVATE_KEY) {
+    return NextResponse.json({ error: "configuration_error", message: "DEMO_FAUCET_KEY is not configured." }, { status: 500 });
+  }
+
+  const searchParams = req.nextUrl.searchParams;
+  if (searchParams.get('network') === 'mainnet') {
+     return NextResponse.json({ error: "forbidden", message: "Demo faucet cannot be used on Mainnet." }, { status: 403 });
+  }
+
   const { agent_name } = await req.json();
   const baseUrl = new URL(req.url).origin;
 
   return new Promise((resolve) => {
     executionQueue = executionQueue.then(async () => {
       try {
-        const result = await executeTransaction(agent_name, baseUrl);
+        const result = await executeTransaction(agent_name, baseUrl, DEMO_PRIVATE_KEY);
         resolve(NextResponse.json(result));
       } catch (e) {
         const error = e instanceof Error ? e : new Error(String(e));
@@ -35,16 +43,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         nextNonce = null;
 
         if (errStr.includes("nonce") || errStr.includes("underpriced") || errStr.includes("already known")) {
-          resolve(NextResponse.json({ error: "NETWORK_CONGESTION", message: "EVM Nonce Syncing... Re-trying now." }, { status: 429 }));
+          resolve(NextResponse.json({ error: "network_congestion", message: "EVM Nonce Syncing... Re-trying now." }, { status: 429 }));
         } else {
-          resolve(NextResponse.json({ error: "EXECUTION_ERROR", message: error.message }, { status: 500 }));
+          resolve(NextResponse.json({ error: "execution_error", message: error.message }, { status: 500 }));
         }
       }
     });
   });
 }
 
-async function executeTransaction(agent_name: string, baseUrl: string) {
+async function executeTransaction(agent_name: string, baseUrl: string, DEMO_PRIVATE_KEY: string) {
   const initialRes = await fetch(`${baseUrl}/api/pom?network=testnet`, {
     method: 'POST',
     body: JSON.stringify({ agent_name })
@@ -91,7 +99,7 @@ async function executeTransaction(agent_name: string, baseUrl: string) {
   const receipt = await payTx.wait();
 
   const unifiedPayload = {
-    version: "3.1",
+    version: "2.2.0",
     type: "onchain",
     orderId: orderId,
     payload: { txHash: receipt.hash }

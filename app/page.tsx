@@ -584,7 +584,11 @@ const SDKShowcase = () => (
 // Drop-in middleware (Base Mainnet)
 app.get('/api/data', x402Gate({
   merchantAddress: '0xYourWallet...',
-  price: '1.00' // 1.00 USDC
+  price: '1.00', // 1.00 USDC
+  // For Sandbox/Testnet, pass configuration:
+  // chainId: 84532, 
+  // rpcUrls: ['https://sepolia.base.org'],
+  // tokenAddress: '0x65c088EfBDB0E03185Dbe8e258Ad0cf4Ab7946b0'
 }), (req, res) => {
   res.json({ data: 'Hello from AI Economy!' });
 });`}
@@ -603,6 +607,10 @@ app.add_middleware(
     PayNodeMiddleware,
     merchant_address="0xYourWallet...",
     price="1.00", # 1.00 USDC
+    # For Sandbox/Testnet, add:
+    # chain_id=84532,
+    # rpc_urls=["https://sepolia.base.org"],
+    # token_address="0x65c088EfBDB0E03185Dbe8e258Ad0cf4Ab7946b0"
 )`}
           </pre>
         </div>
@@ -626,6 +634,8 @@ app.add_middleware(
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
             {`from paynode_sdk import PayNodeAgentClient
 
+# Default is Mainnet. For Sandbox, pass rpc_url:
+# agent = PayNodeAgentClient(private_key="0x...", rpc_url="https://sepolia.base.org")
 agent = PayNodeAgentClient(private_key="0x...")
 
 # Auto-selects EIP-3009 or On-chain
@@ -641,6 +651,8 @@ print(response.json())`}
           <pre className="p-6 text-[13px] text-gray-300 font-mono leading-relaxed overflow-x-auto text-left">
             {`import { PayNodeAgentClient } from '@paynodelabs/sdk-js';
 
+// Default is Mainnet. For Sandbox, pass rpcUrl:
+// const agent = new PayNodeAgentClient(key, 'https://sepolia.base.org');
 const agent = new PayNodeAgentClient(process.env.PRIVATE_KEY);
 
 // Auto-selects EIP-3009 or On-chain

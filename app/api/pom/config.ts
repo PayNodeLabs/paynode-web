@@ -8,6 +8,7 @@ export const BASE_MAINNET_CONFIG = {
   rpcUrls: ["https://mainnet.base.org", "https://base.meowrpc.com", "https://1rpc.io/base"],
   routerAddress: "0x4A73696ccF76E7381b044cB95127B3784369Ed63",
   usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  treasury: "0x598bF63F5449876efafa7b36b77Deb2070621C0E"
 };
 
 export const BASE_SEPOLIA_CONFIG = {
@@ -15,6 +16,7 @@ export const BASE_SEPOLIA_CONFIG = {
   rpcUrls: ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com"],
   routerAddress: "0x24cD8b68aaC209217ff5a6ef1Bf55a59f2c8Ca6F",
   usdcAddress: "0x65c088EfBDB0E03185Dbe8e258Ad0cf4Ab7946b0",
+  treasury: "0x598bF63F5449876efafa7b36b77Deb2070621C0E"
 };
 
 export const getNetworkConfig = (isMainnet: boolean) => isMainnet ? BASE_MAINNET_CONFIG : BASE_SEPOLIA_CONFIG;

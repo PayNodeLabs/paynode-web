@@ -7,11 +7,14 @@ import { supabaseAdmin } from '../../../pom/lib/supabase-admin';
  * NEW X402 V2 SPECIFIC DEMO (Standalone)
  * This is a separate endpoint for testing the new V2 standard compatibility.
  */
-const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
-if (!DEMO_PRIVATE_KEY) throw new Error("DEMO_FAUCET_KEY environment variable is required");
 const RPC_URL = process.env.TESTNET_RPC_URLS || BASE_SEPOLIA_CONFIG.rpcUrls[0];
 
 export async function POST(req: NextRequest) {
+  const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
+  if (!DEMO_PRIVATE_KEY) {
+    return NextResponse.json({ error: "CONFIGURATION_ERROR", message: "DEMO_FAUCET_KEY is not configured." }, { status: 500 });
+  }
+
   try {
     const { agent_name } = await req.json();
     const baseUrl = new URL(req.url).origin;
@@ -23,11 +26,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (initialRes.status !== 402) {
-       return NextResponse.json({ error: "X402 Handshake failed", status: initialRes.status }, { status: 500 });
+      return NextResponse.json({ error: "X402 Handshake failed", status: initialRes.status }, { status: 500 });
     }
 
     const v2Req = await initialRes.json();
-    const requirement = v2Req.accepts[0]; 
+    const requirement = v2Req.accepts[0];
 
     // 2. Client-side signing (Real key)
     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -68,14 +71,14 @@ export async function POST(req: NextRequest) {
     // 3. Construct Payload
     const orderId = `eip3009_demo_${Date.now()}_${ethers.hexlify(ethers.randomBytes(4))}`;
     const unifiedPayload = {
-      version: "3.1",
+      version: "2.2.0",
       type: "eip3009",
       orderId: orderId,
       payload: {
         signature,
         authorization: {
-           ...authorization,
-           value: authorization.value.toString()
+          ...authorization,
+          value: authorization.value.toString()
         }
       }
     };
@@ -96,13 +99,13 @@ export async function POST(req: NextRequest) {
     const result = await finalRes.json();
 
     if (!finalRes.ok || result.error || result.success === false) {
-       console.error("[Demo_Verification_Failed]:", result.errorReason || result.error);
-       return NextResponse.json({
-          ...result,
-          txHash: `eip3009_failed:${nonce.slice(0, 16)}`,
-          standard: "x402-v2",
-          payload_preview: { payer: wallet.address, nonce: nonce }
-       }, { status: finalRes.status });
+      console.error("[Demo_Verification_Failed]:", result.errorReason || result.error);
+      return NextResponse.json({
+        ...result,
+        txHash: `eip3009_failed:${nonce.slice(0, 16)}`,
+        standard: "x402-v2",
+        payload_preview: { payer: wallet.address, nonce: nonce }
+      }, { status: finalRes.status });
     }
 
     let settlementTxHash = null;
@@ -115,7 +118,7 @@ export async function POST(req: NextRequest) {
 
       const sig = ethers.Signature.from(signature);
       const currentNonce = await provider.getTransactionCount(wallet.address, "pending");
-      
+
       const tx = await tokenContract.transferWithAuthorization(
         authorization.from,
         authorization.to,
@@ -128,7 +131,7 @@ export async function POST(req: NextRequest) {
         sig.s,
         { nonce: currentNonce, gasLimit: 150000 }
       );
-      
+
       console.log(`[Demo] On-chain settlement tx submitted: ${tx.hash}`);
       const receipt = await tx.wait();
       console.log(`[Demo] Settlement confirmed in block: ${receipt.blockNumber}`);
@@ -147,7 +150,7 @@ export async function POST(req: NextRequest) {
       } else {
         console.log(`[Demo] Database updated successfully: order_id=${orderId} -> tx_hash=${tx.hash}`);
       }
-      
+
       settlementTxHash = tx.hash;
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
@@ -156,13 +159,19 @@ export async function POST(req: NextRequest) {
         error: errorMsg,
         wallet: wallet.address
       });
+
+      // 🛡️ Robustness: Mark as settlement failed in DB
+      await supabaseAdmin
+        .from('transactions')
+        .update({ agent_name: `${agent_name}_SETTLEMENT_FAILED` })
+        .eq('order_id', orderId);
     }
 
     return NextResponse.json({
-        ...result,
-        txHash: (settlementTxHash || `eip3009:${signature.slice(0, 58)}`),
-        standard: "x402-v2",
-        payload_preview: { payer: wallet.address, nonce: nonce }
+      ...result,
+      txHash: (settlementTxHash || `eip3009:${signature.slice(0, 58)}`),
+      standard: "x402-v2",
+      payload_preview: { payer: wallet.address, nonce: nonce }
     });
 
   } catch (error) {

@@ -23,74 +23,41 @@ function isAllowedDomain(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
+  if (!isAllowedDomain(req)) {
+    return NextResponse.json({ error: "FORBIDDEN: Cross-origin requests not allowed." }, { status: 403 });
+  }
   try {
     const { agent_name } = await req.json();
     const searchParams = req.nextUrl.searchParams;
     const isMainnet = searchParams.get('network') === 'mainnet';
 
     const config = getNetworkConfig(isMainnet);
-    const v2PayloadHeader = req.headers.get('X-402-Payload');
-    const orderId = req.headers.get('X-402-Order-Id');
+    const v2PayloadHeader = req.headers.get('PAYMENT-SIGNATURE') || req.headers.get('X-402-Payload');
+    const orderId = req.headers.get('X-402-Order-Id') || req.headers.get('x-paynode-order-id'); 
+    
 
     if (v2PayloadHeader) {
       // 🛡️ SECURITY FIX: Deep On-Chain Verification & Idempotency Store
-      const { PayNodeVerifier } = await import('@paynodelabs/sdk-js');
+      const { getPayNodeVerifier, parseUnifiedPayload } = await import('./lib/verify-payment');
 
-      const supabaseStore = {
-          async checkAndSet(key: string) {
-            // 🛡️ Proactive locking: Upsert a pending record. 
-            // If it already exists and is NOT _pending, it's already consumed.
-            const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
-            
-            if (selectError) {
-              console.error("[Idempotency_Select_Error]:", selectError.message);
-            }
-
-            if (existing && existing.agent_name !== '_pending') {
-              console.warn(`[Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name} for order ${existing.order_id}`);
-              return false; // Already consumed by a real agent
-            }
-
-            // Placeholder to "lock" or update the transaction hash early
-            const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
-              tx_hash: key,
-              agent_name: '_pending',
-              amount: 0,
-              merchant_address: PROTOCOL_TREASURY, // 🛡️ Fix Not-Null constraint
-              network: isMainnet ? 'mainnet' : 'testnet',
-              order_id: orderId || `pending_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-            }, { onConflict: 'tx_hash' });
-            
-            if (upsertError) {
-              console.error("[Idempotency_Upsert_Fatal]:", upsertError.message, "Key:", key, "OrderId:", orderId);
-              return false;
-            }
-
-            return true;
-          },
-        async delete(key: string): Promise<void> {
-          // Cleanup the pending placeholder if verification fails
-          await supabaseAdmin.from('transactions').delete().eq('tx_hash', key).eq('agent_name', '_pending');
-        }
-      };
-
-      const verifier = new PayNodeVerifier({
+      const verifier = await getPayNodeVerifier({
         rpcUrls: config.rpcUrls,
         chainId: config.chainId,
-        contractAddress: config.routerAddress,
-        store: supabaseStore,
-        acceptedTokens: [config.usdcAddress]
+        routerAddress: config.routerAddress,
+        usdcAddress: config.usdcAddress,
+        isMainnet: isMainnet,
+        orderId: orderId
       });
 
       let unifiedPayload: UnifiedPaymentPayload;
       try {
-        unifiedPayload = JSON.parse(Buffer.from(v2PayloadHeader, 'base64').toString());
+        unifiedPayload = parseUnifiedPayload(v2PayloadHeader, orderId);
       } catch {
-        return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode X-402-Payload header." }, { status: 400 });
+        return NextResponse.json({ error: "invalid_payload: Failed to decode payment signature header." }, { status: 400 });
       }
 
       if (!orderId) {
-        return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
+        return NextResponse.json({ error: "order_mismatch: Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
       }
 
       const result = await verifier.verify(unifiedPayload, {
@@ -103,7 +70,7 @@ export async function POST(req: NextRequest) {
       }, unifiedPayload.type === 'eip3009' ? { name: "USD Coin", version: "2" } : {});
 
       if (!result.isValid) {
-        return NextResponse.json({ error: `INVALID_RECEIPT: ${result.error?.message}` }, { status: 400 });
+        return NextResponse.json({ error: `invalid_receipt: ${result.error?.message}` }, { status: 400 });
       }
 
       // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
@@ -129,15 +96,31 @@ export async function POST(req: NextRequest) {
 
       if (insertError) {
         console.error("[Supabase_Upsert_Error]:", insertError.message);
-        return NextResponse.json({ error: "INTERNAL_ERROR: Failed to save verified transaction." }, { status: 500 });
+        return NextResponse.json({ error: "internal_error: Failed to save verified transaction." }, { status: 500 });
       }
 
-      return NextResponse.json({
+
+      const successResponse = NextResponse.json({
         status: "SUCCESS",
         txHash: txHash,
         message: `Verified! Welcome to the Doodle Wall, ${agent_name}`,
         explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
       });
+
+      // Add Settlement Confirmation Headers (V2 Standard)
+      const payer = ('authorization' in unifiedPayload.payload) ? (unifiedPayload.payload as ExactEVMPayload).authorization.from : undefined;
+      const settlementInfo = JSON.stringify({
+        success: true,
+        transaction: txHash,
+        network: `eip155:${config.chainId}`,
+        payer: payer
+      });
+      successResponse.headers.set('PAYMENT-RESPONSE', settlementInfo);
+      successResponse.headers.set('X-PAYMENT-RESPONSE', settlementInfo);
+      successResponse.headers.set('x-paynode-receipt', txHash);
+      successResponse.headers.set('x-paynode-order-id', orderId || "");
+      
+      return successResponse;
     }
 
     const v2Response = {
@@ -183,8 +166,10 @@ export async function POST(req: NextRequest) {
       explorer: `https://www.paynode.dev/pom?network=${isMainnet ? 'mainnet' : 'testnet'}`
     }, { status: 402 });
     
+    response.headers.set('PAYMENT-REQUIRED', b64Required);
     response.headers.set('X-402-Required', b64Required);
     response.headers.set('X-402-Order-Id', newOrderId);
+    response.headers.set('x-paynode-order-id', newOrderId);
     return response;
 
   } catch (error) {
