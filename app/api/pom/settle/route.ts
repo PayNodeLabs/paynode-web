@@ -2,7 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../lib/supabase-admin';
 import { getNetworkConfig } from '../config';
 
+function isAllowedDomain(req: NextRequest) {
+  const host = req.headers.get('host');
+  const origin = req.headers.get('origin');
+  const referer = req.headers.get('referer');
+  try {
+    if (origin && new URL(origin).host !== host) return false;
+    if (referer && new URL(referer).host !== host) return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 export async function POST(req: NextRequest) {
+    if (!isAllowedDomain(req)) {
+        return NextResponse.json({ error: "FORBIDDEN: Cross-origin requests not allowed." }, { status: 403 });
+    }
     try {
         const { orderId } = await req.json();
         if (!orderId) {
