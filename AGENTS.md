@@ -15,7 +15,7 @@ PayNode Web is the user-facing portal and API hub for the PayNode protocol. It s
 
 # WHERE TO LOOK
 - **POM API Implementation:** `app/api/pom/route.ts` (handles 402 handshakes and verification).
-- **Network Config:** `app/api/pom/config.ts` (synced from root `paynode-config.json`).
+- **Network Config:** `app/api/pom/config.ts` (synced from `meta/paynode-config.json` in the aggregate workspace).
 - **Supabase Client:** `app/api/pom/lib/supabase.ts`.
 - **Global Styles:** `app/globals.css` (Tailwind 4).
 
@@ -27,7 +27,7 @@ PayNode Web is the user-facing portal and API hub for the PayNode protocol. It s
 - **Types:** Strict TypeScript. Use @/* aliases for imports from the root.
 
 # ANTI-PATTERNS
-- **No Manual Protocol Constants:** Do not edit app/api/pom/config.ts manually. Use scripts/sync-config.py in the root.
+- **No Manual Protocol Constants:** Do not edit `app/api/pom/config.ts` manually. Use `python3 meta/scripts/sync-config.py` from the aggregate workspace.
 - **No Client-Side Keys:** Never expose Supabase service keys or private keys in client components.
 - **No Inline Styles:** Use Tailwind utilities or CSS variables defined in globals.css.
 - **No standard fetch for POM:** Always use headers matching the SDK specification in SDK_SPECIFICATION.md.
