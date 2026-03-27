@@ -18,15 +18,6 @@ export async function POST(req: NextRequest) {
 
     if (v2PayloadHeader) {
       const { getPayNodeVerifier, parseUnifiedPayload } = await import('../../pom/lib/verify-payment');
-      
-      const verifier = await getPayNodeVerifier({
-        rpcUrls: config.rpcUrls,
-        chainId: config.chainId,
-        routerAddress: config.routerAddress,
-        usdcAddress: config.usdcAddress,
-        isMainnet: isMainnet,
-        orderId: orderId
-      });
 
       let unifiedPayload: UnifiedPaymentPayload;
       try {
@@ -34,6 +25,16 @@ export async function POST(req: NextRequest) {
       } catch {
         return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode payment signature header." }, { status: 400 });
       }
+
+      const verifier = await getPayNodeVerifier({
+        rpcUrls: config.rpcUrls,
+        chainId: config.chainId,
+        routerAddress: config.routerAddress,
+        usdcAddress: config.usdcAddress,
+        isMainnet: isMainnet,
+        orderId: orderId,
+        isEip3009: unifiedPayload.type === 'eip3009'
+      });
 
       if (!orderId) {
         return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
@@ -63,17 +64,23 @@ export async function POST(req: NextRequest) {
           tokenAddress: config.usdcAddress,
           privateKey: DEMO_PRIVATE_KEY
         }).then(async (realTxHash) => {
-          await supabaseAdmin.from('transactions').update({ tx_hash: realTxHash }).eq('order_id', orderId);
+          // 🛡️ Precision Update: Update ONLY the non-pending record
+          const { error: updateError } = await supabaseAdmin
+            .from('transactions')
+            .update({ tx_hash: realTxHash })
+            .eq('order_id', orderId)
+            .neq('agent_name', '_pending');
+          
+          if (updateError) console.error(`[AutoSettle-Test_Error] Order ${orderId}:`, updateError.message);
           console.log(`[AutoSettle-Test] Successfully collected funds for order ${orderId}. Tx: ${realTxHash}`);
         }).catch((err) => {
           console.error(`[AutoSettle-Test_Error] Failed to collect for order ${orderId}:`, err.message);
         });
       }
 
-      // 🛡️ Cleanup placeholder for EIP-3009 (since we use signature-based tx_hash for the final record)
+      // 🛡️ Cleanup placeholder for EIP-3009 by orderId to prevent race conditions
       if (unifiedPayload.type === 'eip3009') {
-        const nonce = (unifiedPayload.payload as ExactEVMPayload).authorization.nonce;
-        await supabaseAdmin.from('transactions').delete().eq('tx_hash', nonce).eq('agent_name', '_pending');
+        await supabaseAdmin.from('transactions').delete().eq('order_id', orderId).eq('agent_name', '_pending');
       }
 
       const payload = unifiedPayload.payload;
