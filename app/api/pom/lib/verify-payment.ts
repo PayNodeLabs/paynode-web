@@ -2,8 +2,16 @@ import { PayNodeVerifier, UnifiedPaymentPayload } from '@paynodelabs/sdk-js';
 import { supabaseAdmin } from './supabase-admin';
 import { PROTOCOL_TREASURY } from '../config';
 
-export async function getPayNodeVerifier(config: { rpcUrls: string[]; chainId: number; routerAddress: string; usdcAddress: string; isMainnet: boolean; orderId: string | null }) {
-    const { isMainnet, orderId } = config;
+export async function getPayNodeVerifier(config: { 
+    rpcUrls: string[]; 
+    chainId: number; 
+    routerAddress: string; 
+    usdcAddress: string; 
+    isMainnet: boolean; 
+    orderId: string | null;
+    isEip3009?: boolean; 
+}) {
+    const { isMainnet, orderId, isEip3009 } = config;
     
     return new PayNodeVerifier({
         rpcUrls: config.rpcUrls,
@@ -11,32 +19,32 @@ export async function getPayNodeVerifier(config: { rpcUrls: string[]; chainId: n
         contractAddress: config.routerAddress,
         store: {
             async checkAndSet(key: string) {
-                // 🛡️ Proactive locking: Upsert a pending record. 
-                // If it already exists and is NOT _pending, it's already consumed.
+                // 1. Check if the hash/nonce is already consumed
                 const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
                 
-                if (selectError) {
-                    console.error("[Idempotency_Select_Error]:", selectError.message);
-                }
+                if (selectError) console.error("[Idempotency_Select_Error]:", selectError.message);
 
                 if (existing && existing.agent_name !== '_pending') {
-                    console.warn(`[Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name} for order ${existing.order_id}`);
-                    return false; // Already consumed by a real agent
+                    console.warn(`[Idempotency_Rejected]: Key ${key} already consumed by ${existing.agent_name}`);
+                    return false;
                 }
 
-                // Placeholder to "lock" or update the transaction hash early
-                const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
-                    tx_hash: key,
-                    agent_name: '_pending',
-                    amount: 0,
-                    merchant_address: PROTOCOL_TREASURY, // 🛡️ Fix Not-Null constraint
-                    network: isMainnet ? 'mainnet' : 'testnet',
-                    order_id: orderId || `pending_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-                }, { onConflict: 'tx_hash' });
-                
-                if (upsertError) {
-                    console.error("[Idempotency_Upsert_Fatal]:", upsertError.message, "Key:", key, "OrderId:", orderId);
-                    return false;
+                // 2. 🛡️ ONLY create placeholder for EIP-3009 (to lock nonces)
+                // For direct on-chain, we don't need _pending because the real record will upsert the same tx_hash.
+                if (isEip3009) {
+                    const { error: upsertError } = await supabaseAdmin.from('transactions').upsert({
+                        tx_hash: key,
+                        agent_name: '_pending',
+                        amount: 0,
+                        merchant_address: PROTOCOL_TREASURY,
+                        network: isMainnet ? 'mainnet' : 'testnet',
+                        order_id: orderId || `pending_${Date.now()}`
+                    }, { onConflict: 'tx_hash' });
+                    
+                    if (upsertError) {
+                        console.error("[Idempotency_Upsert_Error]:", upsertError.message);
+                        return false;
+                    }
                 }
 
                 return true;
