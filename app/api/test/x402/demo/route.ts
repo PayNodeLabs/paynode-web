@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ethers } from 'ethers';
+import { ethers } from '@paynodelabs/sdk-js';
 import { BASE_SEPOLIA_CONFIG } from '../../../pom/config';
 import { supabaseAdmin } from '../../../pom/lib/supabase-admin';
+import { SDK_VERSION } from '@paynodelabs/sdk-js';
 
 /**
  * NEW X402 V2 SPECIFIC DEMO (Standalone)
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     // 3. Construct Payload
     const orderId = `eip3009_demo_${Date.now()}_${ethers.hexlify(ethers.randomBytes(4))}`;
     const unifiedPayload = {
-      version: "2.2.0",
+      version: SDK_VERSION,
       type: "eip3009",
       orderId: orderId,
       payload: {

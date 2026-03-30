@@ -1,18 +1,18 @@
-import { PayNodeVerifier, UnifiedPaymentPayload } from '@paynodelabs/sdk-js';
+import { PayNodeVerifier, UnifiedPaymentPayload, X402PayloadHelper } from '@paynodelabs/sdk-js';
 import { supabaseAdmin } from './supabase-admin';
 import { PROTOCOL_TREASURY } from '../config';
 
-export async function getPayNodeVerifier(config: { 
-    rpcUrls: string[]; 
-    chainId: number; 
-    routerAddress: string; 
-    usdcAddress: string; 
-    isMainnet: boolean; 
+export async function getPayNodeVerifier(config: {
+    rpcUrls: string[];
+    chainId: number;
+    routerAddress: string;
+    usdcAddress: string;
+    isMainnet: boolean;
     orderId: string | null;
-    isEip3009?: boolean; 
+    isEip3009?: boolean;
 }) {
     const { isMainnet, orderId, isEip3009 } = config;
-    
+
     return new PayNodeVerifier({
         rpcUrls: config.rpcUrls,
         chainId: config.chainId,
@@ -21,7 +21,7 @@ export async function getPayNodeVerifier(config: {
             async checkAndSet(key: string) {
                 // 1. Check if the hash/nonce is already consumed
                 const { data: existing, error: selectError } = await supabaseAdmin.from('transactions').select('agent_name, order_id').eq('tx_hash', key).maybeSingle();
-                
+
                 if (selectError) console.error("[Idempotency_Select_Error]:", selectError.message);
 
                 if (existing && existing.agent_name !== '_pending') {
@@ -38,9 +38,9 @@ export async function getPayNodeVerifier(config: {
                         amount: 0,
                         merchant_address: PROTOCOL_TREASURY,
                         network: isMainnet ? 'mainnet' : 'testnet',
-                        order_id: orderId || `pending_${Date.now()}`
+                        order_id: orderId || `pn_web_pending_${Date.now()}`
                     }, { onConflict: 'tx_hash' });
-                    
+
                     if (upsertError) {
                         console.error("[Idempotency_Upsert_Error]:", upsertError.message);
                         return false;
@@ -59,23 +59,5 @@ export async function getPayNodeVerifier(config: {
 }
 
 export function parseUnifiedPayload(v2PayloadHeader: string, orderId: string | null): UnifiedPaymentPayload {
-    const parsed = JSON.parse(Buffer.from(v2PayloadHeader, 'base64').toString());
-    
-    // Handle Official X402 V2 format mapping
-    if (parsed.x402Version === 2 && parsed.accepted) {
-        // Infer type from payload content if _paynode.type is missing
-        let inferredType: "onchain" | "eip3009" = "onchain";
-        if (parsed.payload?.signature || parsed.payload?.authorization) {
-            inferredType = "eip3009";
-        }
-
-        return {
-            version: "2.2.1",
-            type: parsed._paynode?.type || inferredType,
-            orderId: parsed._paynode?.orderId || orderId || "",
-            payload: parsed.payload
-        };
-    } else {
-        return parsed as UnifiedPaymentPayload;
-    }
+    return X402PayloadHelper.normalize(v2PayloadHeader, orderId || undefined);
 }

@@ -123,7 +123,8 @@ export async function POST(req: NextRequest) {
       return successResponse;
     }
 
-    const newOrderId = `test_x402_${Date.now()}`;
+    const newOrderId = `pn_web_${Date.now()}`;
+
     const v2Response = {
       x402Version: 2,
       error: "X-402-Payload header is required",
@@ -133,6 +134,17 @@ export async function POST(req: NextRequest) {
         mimeType: "application/json"
       },
       accepts: [
+        {
+          scheme: "exact",
+          type: "onchain",
+          network: networkId,
+          amount: MIN_PAYMENT_AMOUNT.toString(),
+          asset: config.usdcAddress,
+          payTo: PROTOCOL_TREASURY,
+          maxTimeoutSeconds: 600,
+          router: config.routerAddress,
+          extra: { name: "USD Coin", version: "2" }
+        },
         {
           scheme: "exact",
           type: "eip3009",
@@ -145,16 +157,6 @@ export async function POST(req: NextRequest) {
             name: "USD Coin",
             version: "2"
           }
-        },
-        {
-          scheme: "exact",
-          type: "onchain",
-          network: networkId,
-          amount: MIN_PAYMENT_AMOUNT.toString(),
-          asset: config.usdcAddress,
-          payTo: PROTOCOL_TREASURY,
-          maxTimeoutSeconds: 600,
-          router: config.routerAddress
         }
       ]
     };
