@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const config = getNetworkConfig(isMainnet);
     const v2PayloadHeader = req.headers.get('PAYMENT-SIGNATURE') || req.headers.get('X-402-Payload');
-    const orderId = req.headers.get('X-402-Order-Id') || req.headers.get('x-paynode-order-id'); 
+    const orderId = req.headers.get('X-402-Order-Id') || req.headers.get('X-PayNode-Order-Id') || req.headers.get('x-paynode-order-id'); 
     
 
     if (v2PayloadHeader) {
@@ -77,33 +77,21 @@ export async function POST(req: NextRequest) {
       // Background Settlement Logic (Auto-Settle)
       const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
       if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY) {
-        const { settleTransferWithAuthorization } = await import('./lib/settle-payment');
+        const { performSettleAndUpdate } = await import('./lib/settle-and-update');
         const payload = unifiedPayload.payload as ExactEVMPayload;
         
         // Fire and forget (Asynchronous settlement in background)
-        settleTransferWithAuthorization(payload.signature, payload.authorization, {
+        performSettleAndUpdate(payload, {
           rpcUrl: config.rpcUrls[0],
           tokenAddress: config.usdcAddress,
-          privateKey: DEMO_PRIVATE_KEY
-        }).then(async (realTxHash) => {
-          // 🛡️ Precision Update: Update ONLY the non-pending record that holds the auth payload
-          const { error: updateError } = await supabaseAdmin
-            .from('transactions')
-            .update({ tx_hash: realTxHash })
-            .eq('order_id', orderId)
-            .neq('agent_name', '_pending');
-          
-          if (updateError) console.error(`[AutoSettle_DB_Error] Order ${orderId}:`, updateError.message);
-          console.log(`[AutoSettle] Successfully collected funds for order ${orderId}. Tx: ${realTxHash}`);
+          privateKey: DEMO_PRIVATE_KEY,
+          orderId: orderId,
+          agentName: agent_name || 'unknown'
         }).catch((err) => {
-          console.error(`[AutoSettle_Error] Failed to collect for order ${orderId}:`, err.message);
+          // Explicitly handled inside performSettleAndUpdate, but we catch top-level as well
         });
       }
 
-      // 🛡️ Cleanup placeholder for EIP-3009 by orderId to prevent race conditions 
-      if (unifiedPayload.type === 'eip3009') {
-        await supabaseAdmin.from('transactions').delete().eq('order_id', orderId).eq('agent_name', '_pending');
-      }
 
       // 2. Persistent Storage (Verified Data Only) - Overwrites the pending placeholder
       const txHash = ('txHash' in unifiedPayload.payload && unifiedPayload.payload.txHash)
@@ -145,6 +133,8 @@ export async function POST(req: NextRequest) {
       successResponse.headers.set('PAYMENT-RESPONSE', b64Settlement);
       successResponse.headers.set('X-PAYMENT-RESPONSE', b64Settlement);
       successResponse.headers.set('x-paynode-receipt', txHash);
+      successResponse.headers.set('X-402-Order-Id', orderId || "");
+      successResponse.headers.set('X-PayNode-Order-Id', orderId || "");
       successResponse.headers.set('x-paynode-order-id', orderId || "");
       
       return successResponse;
@@ -185,7 +175,7 @@ export async function POST(req: NextRequest) {
       ]
     };
 
-    const newOrderId = `pom_${Date.now()}`;
+    const newOrderId = `pn_web_${Date.now()}`;
     const b64Required = Buffer.from(JSON.stringify(v2Response)).toString('base64');
     const response = NextResponse.json({
       ...v2Response,
@@ -197,6 +187,7 @@ export async function POST(req: NextRequest) {
     response.headers.set('PAYMENT-REQUIRED', b64Required);
     response.headers.set('X-402-Required', b64Required);
     response.headers.set('X-402-Order-Id', newOrderId);
+    response.headers.set('X-PayNode-Order-Id', newOrderId);
     response.headers.set('x-paynode-order-id', newOrderId);
     return response;
 

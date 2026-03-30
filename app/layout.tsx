@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'),
   title: "PayNode | The Agent-to-Machine Payment Protocol",
   description: "Non-custodial, stateless HTTP 402 middleware for AI agents on Base L2.",
   icons: {
