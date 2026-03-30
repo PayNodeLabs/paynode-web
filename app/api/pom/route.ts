@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         tokenAddress: config.usdcAddress,
         amount: BigInt(MIN_PAYMENT_AMOUNT).toString(),
         orderId: orderId
-      }, unifiedPayload.type === 'eip3009' ? { name: "USD Coin", version: "2" } : {});
+      }, unifiedPayload.type === 'eip3009' ? { name: isMainnet ? "USDC" : "USD Coin", version: "2" } : {});
 
       if (!result.isValid) {
         return NextResponse.json({ error: `invalid_receipt: ${result.error?.message}` }, { status: 400 });
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
           payTo: PROTOCOL_TREASURY,
           maxTimeoutSeconds: 3600,
           extra: {
-            name: "USD Coin",
+            name: isMainnet ? "USDC" : "USD Coin",
             version: "2"
           }
         }
