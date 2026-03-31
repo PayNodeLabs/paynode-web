@@ -24,6 +24,7 @@ import {
   Rampart_One
 } from "next/font/google";
 import { supabase } from "../api/pom/lib/supabase";
+import { useToast } from "../../components/ui/Toast";
 
 const blackOpsOne = Black_Ops_One({ weight: "400", subsets: ["latin"] });
 const orbitron = Orbitron({ subsets: ["latin"] });
@@ -53,6 +54,7 @@ function POMExplorerContent() {
   const logEndRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [kingTrigger, setKingTrigger] = useState(0);
+  const { toast } = useToast();
 
   const [data, setData] = useState<{
     feed: FeedItem[];
@@ -129,13 +131,13 @@ function POMExplorerContent() {
       });
       const result = await res.json();
       if (res.ok) {
-        alert(`Settlement successful! Tx: ${result.txHash}`);
+        toast.success(`Settlement successful! Tx: ${result.txHash.slice(0, 10)}...`);
         fetchData(true);
       } else {
-        alert(`Settlement failed: ${result.error || result.message}`);
+        toast.error(`Settlement failed: ${result.error || result.message}`);
       }
     } catch {
-      alert('Connection error during settlement.');
+      toast.error('Connection error during settlement.');
     } finally {
       setIsLoading(false);
       fetchData(true);
