@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
       // Background Settlement Logic (Auto-Settle)
       const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
-      if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY) {
+      if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY && !isMainnet) {
         const { performSettleAndUpdate } = await import('./lib/settle-and-update');
         const payload = unifiedPayload.payload as ExactEVMPayload;
         
