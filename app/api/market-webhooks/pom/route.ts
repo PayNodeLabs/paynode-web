@@ -62,11 +62,13 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Doodle recorded successfully on the Global Wall!",
+      explorer: `https://www.paynode.dev/pom?network=${networkName}`,
       data: {
         orderId,
         author,
         content: message,
-        recorded_at: new Date().toISOString()
+        recorded_at: new Date().toISOString(),
+        preview_url: `https://www.paynode.dev/pom?network=${networkName}`
       }
     });
 
