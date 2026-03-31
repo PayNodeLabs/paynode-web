@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
+import { ToastProvider } from "../components/ui/Toast";
 
 
 export const metadata: Metadata = {
@@ -103,7 +104,9 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="bg-[#050505] text-white antialiased min-h-screen font-sans">
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
         <Analytics />
       </body>
     </html>
