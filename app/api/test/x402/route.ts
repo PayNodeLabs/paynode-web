@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       try {
         unifiedPayload = parseUnifiedPayload(v2PayloadHeader, orderId);
       } catch {
-        return NextResponse.json({ error: "INVALID_PAYLOAD: Failed to decode payment signature header." }, { status: 400 });
+        return NextResponse.json({ error: "invalid_payload", message: "Failed to decode payment signature header." }, { status: 400 });
       }
 
       const verifier = await getPayNodeVerifier({
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!orderId) {
-        return NextResponse.json({ error: "ORDER_MISMATCH: Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
+        return NextResponse.json({ error: "order_mismatch", message: "Missing 'X-402-Order-Id' in retry header." }, { status: 400 });
       }
 
       const verification = await verifier.verify(unifiedPayload, {
@@ -57,31 +57,17 @@ export async function POST(req: NextRequest) {
       // Background Settlement Logic (Auto-Settle)
       const DEMO_PRIVATE_KEY = process.env.DEMO_FAUCET_KEY;
       if (unifiedPayload.type === 'eip3009' && DEMO_PRIVATE_KEY) {
-        const { settleTransferWithAuthorization } = await import('../../pom/lib/settle-payment');
+        const { performSettleAndUpdate } = await import('../../pom/lib/settle-and-update');
         const payload = unifiedPayload.payload as ExactEVMPayload;
-        settleTransferWithAuthorization(payload.signature, payload.authorization, {
+        performSettleAndUpdate(payload, {
           rpcUrl: config.rpcUrls[0],
           tokenAddress: config.usdcAddress,
-          privateKey: DEMO_PRIVATE_KEY
-        }).then(async (realTxHash) => {
-          // 🛡️ Precision Update: Update ONLY the non-pending record
-          const { error: updateError } = await supabaseAdmin
-            .from('transactions')
-            .update({ tx_hash: realTxHash })
-            .eq('order_id', orderId)
-            .neq('agent_name', '_pending');
-          
-          if (updateError) console.error(`[AutoSettle-Test_Error] Order ${orderId}:`, updateError.message);
-          console.log(`[AutoSettle-Test] Successfully collected funds for order ${orderId}. Tx: ${realTxHash}`);
-        }).catch((err) => {
-          console.error(`[AutoSettle-Test_Error] Failed to collect for order ${orderId}:`, err.message);
-        });
+          privateKey: DEMO_PRIVATE_KEY,
+          orderId: orderId,
+          agentName: agent_name || 'X402_V2_TESTER'
+        }).catch(() => {});
       }
 
-      // 🛡️ Cleanup placeholder for EIP-3009 by orderId to prevent race conditions
-      if (unifiedPayload.type === 'eip3009') {
-        await supabaseAdmin.from('transactions').delete().eq('order_id', orderId).eq('agent_name', '_pending');
-      }
 
       const payload = unifiedPayload.payload;
       const txHash = ('txHash' in payload && payload.txHash)
@@ -123,7 +109,8 @@ export async function POST(req: NextRequest) {
       return successResponse;
     }
 
-    const newOrderId = `test_x402_${Date.now()}`;
+    const newOrderId = `pn_web_${Date.now()}`;
+
     const v2Response = {
       x402Version: 2,
       error: "X-402-Payload header is required",
@@ -133,6 +120,17 @@ export async function POST(req: NextRequest) {
         mimeType: "application/json"
       },
       accepts: [
+        {
+          scheme: "exact",
+          type: "onchain",
+          network: networkId,
+          amount: MIN_PAYMENT_AMOUNT.toString(),
+          asset: config.usdcAddress,
+          payTo: PROTOCOL_TREASURY,
+          maxTimeoutSeconds: 600,
+          router: config.routerAddress,
+          extra: { name: "USD Coin", version: "2" }
+        },
         {
           scheme: "exact",
           type: "eip3009",
@@ -145,16 +143,6 @@ export async function POST(req: NextRequest) {
             name: "USD Coin",
             version: "2"
           }
-        },
-        {
-          scheme: "exact",
-          type: "onchain",
-          network: networkId,
-          amount: MIN_PAYMENT_AMOUNT.toString(),
-          asset: config.usdcAddress,
-          payTo: PROTOCOL_TREASURY,
-          maxTimeoutSeconds: 600,
-          router: config.routerAddress
         }
       ]
     };
@@ -164,6 +152,7 @@ export async function POST(req: NextRequest) {
     response.headers.set('PAYMENT-REQUIRED', b64Required);
     response.headers.set('X-402-Required', b64Required);
     response.headers.set('X-402-Order-Id', newOrderId);
+    response.headers.set('X-PayNode-Order-Id', newOrderId);
     return response;
 
 

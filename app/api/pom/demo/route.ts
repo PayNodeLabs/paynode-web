@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ethers } from 'ethers';
 import { BASE_SEPOLIA_CONFIG } from '../config';
+import { ethers, SDK_VERSION } from '@paynodelabs/sdk-js';
 import type { PaymentRequirements } from '@paynodelabs/sdk-js';
 
 export const maxDuration = 30;
@@ -99,7 +99,7 @@ async function executeTransaction(agent_name: string, baseUrl: string, DEMO_PRIV
   const receipt = await payTx.wait();
 
   const unifiedPayload = {
-    version: "2.2.1",
+    version: SDK_VERSION,
     type: "onchain",
     orderId: orderId,
     payload: { txHash: receipt.hash }

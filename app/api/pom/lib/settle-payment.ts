@@ -1,4 +1,5 @@
-import { ethers, JsonRpcProvider } from 'ethers';
+import { ethers } from '@paynodelabs/sdk-js';
+const { JsonRpcProvider } = ethers;
 
 export interface SettleOptions {
     rpcUrl: string;

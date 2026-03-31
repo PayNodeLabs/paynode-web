@@ -3,8 +3,16 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.warn('⚠️ Supabase service credentials not found.');
+if (!supabaseUrl) {
+  console.warn('⚠️ [PayNode Web] NEXT_PUBLIC_SUPABASE_URL not found.');
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+// Function to get a Service Role client for admin tasks (bypass RLS)
+export const getServiceSupabase = () => {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!serviceKey) console.warn('⚠️ [PayNode Web] SUPABASE_SERVICE_ROLE_KEY not found.');
+  return createClient(supabaseUrl, serviceKey);
+};
+
+// Standardized admin constant for internal consistency
+export const supabaseAdmin = getServiceSupabase();
