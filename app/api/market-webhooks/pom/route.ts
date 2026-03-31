@@ -52,10 +52,14 @@ export async function POST(request: Request) {
       networkName = 'mainnet';
     }
 
+    // Determine exact amount paid (fallback to MIN if missing from proxy)
+    const rawAmount = body.amount || request.headers.get('X-PayNode-Amount') || MIN_PAYMENT_AMOUNT.toString();
+    const decimalAmount = Number(rawAmount) / 1000000;
+
     const { error: dbError } = await supabaseAdmin.from('transactions').upsert({
       agent_name: `${author}: ${message}`,
       tx_hash: txHash,
-      amount: Number(MIN_PAYMENT_AMOUNT) / 1000000,
+      amount: decimalAmount,
       merchant_address: PROTOCOL_TREASURY,
       network: networkName,
       order_id: orderId
