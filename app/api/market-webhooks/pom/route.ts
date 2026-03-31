@@ -13,8 +13,15 @@ export async function POST(request: Request) {
     const externalApiCode = request.headers.get('X-PayNode-External-Api-Code');
 
     // 🛡️ Security Check: Trust-Proxy Mode (HMAC Verification)
-    const hmacSecret = process.env.PLATFORM_HMAC_SECRET || 'dev_secret_override_in_prod';
-    const expectedSig = crypto.createHmac('sha256', hmacSecret)
+    const hmacSecret = process.env.PLATFORM_HMAC_SECRET;
+    if (!hmacSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('🔴 FATAL: PLATFORM_HMAC_SECRET is not set. Rejecting webhook.');
+        return NextResponse.json({ error: 'configuration_error', message: 'Security secret not configured.' }, { status: 500 });
+      }
+    }
+    const effectiveSecret = hmacSecret || 'dev_secret_override_in_prod';
+    const expectedSig = crypto.createHmac('sha256', effectiveSecret)
       .update(`${orderId}${timestamp}`)
       .digest('hex');
 
