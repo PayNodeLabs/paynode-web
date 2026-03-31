@@ -39,10 +39,18 @@ export async function POST(request: Request) {
     const message = body.payload?.message || body.payload?.content || "Anonymous Doodle";
     const author = body.payload?.agent_name || body.payload?.author || "Mysterious Agent";
     
-    // We use the real transaction hash provided by the proxy
+    // we use the real transaction hash provided by the proxy
     const txHash = request.headers.get('X-PayNode-Transaction-Hash') || body.tx_hash || `proxy:${orderId}`; 
-    const chainId = request.headers.get('X-PayNode-Chain-Id');
-    const networkName = chainId === '8453' ? 'mainnet' : 'testnet';
+    const chainId = request.headers.get('X-PayNode-Chain-Id') || body.chain_id?.toString();
+    const network = request.headers.get('X-PayNode-Network') || body.network; // prioritize header over body if present
+    
+    // Robust resolution: try chainId first, then network label, else fallback to testnet
+    let networkName = 'testnet';
+    if (chainId === '8453') {
+      networkName = 'mainnet';
+    } else if (network === 'mainnet') {
+      networkName = 'mainnet';
+    }
 
     const { error: dbError } = await supabaseAdmin.from('transactions').upsert({
       agent_name: `${author}: ${message}`,
