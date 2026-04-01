@@ -1,64 +1,41 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { PayNodeMerchant } from '@paynodelabs/sdk-js';
 import { supabaseAdmin } from '@/app/api/pom/lib/supabase-admin';
 import { PROTOCOL_TREASURY, MIN_PAYMENT_AMOUNT } from '@/app/api/pom/config';
 
-async function verifySignature(request: Request) {
-  const signature = request.headers.get('X-PayNode-Signature');
-  const timestamp = request.headers.get('X-PayNode-Timestamp');
-  const orderId = request.headers.get('X-PayNode-Request-Id');
-
-  if (!signature || !timestamp || !orderId) return false;
-
-  const hmacSecret = process.env.PLATFORM_HMAC_SECRET || 'dev_secret_override_in_prod';
-  const expectedSig = crypto.createHmac('sha256', hmacSecret)
-    .update(`${orderId}${timestamp}`)
-    .digest('hex');
-
-  return signature === expectedSig;
-}
+// Initialize Merchant SDK (Pure Market Mode - No wallet needed in config)
+const merchant = new PayNodeMerchant({
+  sharedSecret: process.env.PLATFORM_HMAC_SECRET || 'dev_secret_override_in_prod'
+});
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const orderId = request.headers.get('X-PayNode-Request-Id') || body.order_id;
-    const externalApiCode = request.headers.get('X-PayNode-External-Api-Code') || body.external_api_code;
+    // 🛡️ SDK-JS: Verify Signature & Unwrap Body & Extract Payment Context
+    const { isValid, error, body, paynodeContext } = await merchant.verify(request);
 
-    // 🛡️ Security Check: HMAC Verification
-    const isValid = await verifySignature(request);
     if (!isValid) {
-      console.warn(`[Merchant-Auth-Failure] Invalid signature for order ${orderId}. Denying access.`);
-      // If it's a GET, we return schema. If it's a POST without signature, it's a direct agent call or invalid proxy.
-      return NextResponse.json({ error: 'unauthorized', message: 'Signature verification failed.' }, { status: 401 });
+      console.warn(`[Merchant-Auth-Failure] ${error}. Denying access.`);
+      return NextResponse.json({ error: 'unauthorized', message: error }, { status: 401 });
     }
+
+    const { orderId, txHash, chainId, network, amount } = paynodeContext;
+    const author = body.agent_name || body.author || "Mysterious Agent";
+    const message = body.message || body.content || "Anonymous Doodle";
 
     // ✅ Verified - The payment has been validated by the platform proxy
-    console.log(`[Merchant-Success] Processing verified request for order ${orderId}. API Code: ${externalApiCode}`);
+    console.log(`[Merchant-Success] Processing verified request for order ${orderId}.`);
 
-    // Business Logic: Save to Merchant Database (Legacy Transactions Table)
-    const message = body.payload?.message || body.payload?.content || "Anonymous Doodle";
-    const author = body.payload?.agent_name || body.payload?.author || "Mysterious Agent";
-    
-    // we use the real transaction hash provided by the proxy
-    const txHash = request.headers.get('X-PayNode-Transaction-Hash') || body.tx_hash || `proxy:${orderId}`; 
-    const chainId = request.headers.get('X-PayNode-Chain-Id') || body.chain_id?.toString();
-    const network = request.headers.get('X-PayNode-Network') || body.network; // prioritize header over body if present
-    
-    // Robust resolution: try chainId first, then network label, else fallback to testnet
+    // Business Logic: Save to Merchant Database
     let networkName = 'testnet';
-    if (chainId === '8453') {
-      networkName = 'mainnet';
-    } else if (network === 'mainnet') {
+    if (chainId === '8453' || network === 'mainnet') {
       networkName = 'mainnet';
     }
 
-    // Determine exact amount paid (fallback to MIN if missing from proxy)
-    const rawAmount = body.amount || request.headers.get('X-PayNode-Amount') || MIN_PAYMENT_AMOUNT.toString();
-    const decimalAmount = Number(rawAmount) / 1000000;
+    const decimalAmount = Number(amount || MIN_PAYMENT_AMOUNT.toString()) / 1000000;
 
     const { error: dbError } = await supabaseAdmin.from('transactions').upsert({
       agent_name: `${author}: ${message}`,
-      tx_hash: txHash,
+      tx_hash: txHash || `proxy:${orderId}`,
       amount: decimalAmount,
       merchant_address: PROTOCOL_TREASURY,
       network: networkName,
@@ -67,7 +44,6 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error('[Merchant-DB-Error] Failed to save transaction:', dbError.message);
-      // We still return success if the logic passed verification, but log the error
     }
 
     return NextResponse.json({
@@ -90,19 +66,18 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const isValid = await verifySignature(request);
+  // Use SDK for Discovery (Synchronizing to Marketplace)
+  const { isValid, paynodeContext } = await merchant.verify(request);
   const isMainnet = request.headers.get('X-PayNode-Network') === 'mainnet';
 
   if (!isValid) {
-    // If not signed, we can still return a 402 for Agents, but the user said "不用返回 402"
-    // So we'll return 401 to keep the Sync interface secure.
-    return NextResponse.json({ 
-      error: "unauthorized", 
-      message: "API Manual discovery requires a valid PayNode signature." 
+    return NextResponse.json({
+      error: "unauthorized",
+      message: "API Manual discovery requires a valid PayNode signature."
     }, { status: 401 });
   }
 
-  // ✅ Secure Discovery (Marketplace Sync)
+  // ✅ Secure Discovery (Marketplace Sync Response)
   return NextResponse.json({
     x402Version: 2,
     status: "DISCOVERED",
@@ -137,3 +112,4 @@ export async function OPTIONS() {
     }
   });
 }
+

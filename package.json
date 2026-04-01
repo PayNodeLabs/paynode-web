@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@paynodelabs/sdk-js": "^2.2.2",
+    "@paynodelabs/sdk-js": "^2.3.0",
     "@supabase/supabase-js": "^2.100.1",
     "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.38.0",

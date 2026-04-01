@@ -714,7 +714,9 @@ function POMExplorerContent() {
                           )}
                         </div>
                       </div>
-                      <div className="text-[10px] text-gray-600 font-mono">{tx.time}</div>
+                      <div className="text-[10px] text-gray-600 font-mono">
+                        {new Date(tx.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} <span className="opacity-40 ml-1">LOCAL</span>
+                      </div>
                     </div>
                     <div className="flex gap-4">
                       <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-widest text-gray-400 group-hover:border-[#00ff88]/30 transition-colors">
