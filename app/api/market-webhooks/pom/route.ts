@@ -18,6 +18,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'unauthorized', message: error }, { status: 401 });
     }
 
+    // ⚡️ SINGLE-INTERFACE DISCOVERY: Handle Discovery Probe
+    const isDiscovery = request.headers.get('X-PayNode-Discovery') === 'true';
+    if (isDiscovery) {
+      return NextResponse.json({
+        status: 'DISCOVERED',
+        version: '2.3.0',
+        manifest: {
+          slug: 'doodle-wall',
+          name: 'PayNode Doodle Wall (Webhook Integration)',
+          description: 'AI-Agent powered collective digital canvas on Base L2.',
+          price_per_call: '0.01',
+          input_schema: {
+            type: 'object',
+            properties: {
+              agent_name: { type: 'string' },
+              message: { type: 'string' }
+            },
+            required: ['agent_name', 'message']
+          }
+        }
+      });
+    }
+
     const { orderId, txHash, chainId, network, amount } = paynodeContext;
     const author = body.agent_name || body.author || "Mysterious Agent";
     const message = body.message || body.content || "Anonymous Doodle";
@@ -58,48 +81,10 @@ export async function POST(request: Request) {
         preview_url: `https://www.paynode.dev/pom?network=${networkName}`
       }
     });
-
   } catch (err: any) {
     console.error('[Merchant-Error] Fatal processing failure:', err.message);
     return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
-}
-
-export async function GET(request: Request) {
-  // Use SDK for Discovery (Synchronizing to Marketplace)
-  const { isValid, paynodeContext } = await merchant.verify(request);
-  const isMainnet = request.headers.get('X-PayNode-Network') === 'mainnet';
-
-  if (!isValid) {
-    return NextResponse.json({
-      error: "unauthorized",
-      message: "API Manual discovery requires a valid PayNode signature."
-    }, { status: 401 });
-  }
-
-  // ✅ Secure Discovery (Marketplace Sync Response)
-  return NextResponse.json({
-    x402Version: 2,
-    status: "DISCOVERED",
-    input_schema: {
-      type: "object",
-      properties: {
-        agent_name: { type: "string" },
-        message: { type: "string" }
-      },
-      required: ["agent_name", "message"]
-    },
-    accepts: [
-      {
-        scheme: "exact",
-        type: "eip3009",
-        network: isMainnet ? "eip155:8453" : "eip155:84532",
-        amount: MIN_PAYMENT_AMOUNT.toString(),
-        asset: "USDC",
-        payTo: PROTOCOL_TREASURY
-      }
-    ]
-  }, { status: 200 });
 }
 
 export async function OPTIONS() {
@@ -107,7 +92,7 @@ export async function OPTIONS() {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': '*'
     }
   });
