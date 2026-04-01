@@ -237,7 +237,7 @@ export async function GET(req: NextRequest) {
         feed: feed.map(f => ({ 
           agent: f.agent_name, 
           txHash: f.tx_hash, 
-          time: new Date(f.created_at).toLocaleTimeString(), 
+          time: f.created_at, 
           isMainnet: f.network === 'mainnet',
           orderId: f.order_id
         })),
@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
       feed: feed.map(f => ({
         agent: f.agent_name,
         txHash: f.tx_hash,
-        time: new Date(f.created_at).toLocaleTimeString(),
+        time: f.created_at,
         isMainnet: f.network === 'mainnet',
         orderId: f.order_id
       })),
