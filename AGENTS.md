@@ -30,4 +30,4 @@ PayNode Web is the user-facing portal and API hub for the PayNode protocol. It s
 - **No Manual Protocol Constants:** Do not edit `app/api/pom/config.ts` manually. Use `python3 meta/scripts/sync-config.py` from the aggregate workspace.
 - **No Client-Side Keys:** Never expose Supabase service keys or private keys in client components.
 - **No Inline Styles:** Use Tailwind utilities or CSS variables defined in globals.css.
-- **No standard fetch for POM:** Always use headers matching the SDK specification in SDK_SPECIFICATION.md.
+- **No standard fetch for POM:** Always use headers matching the canonical protocol specification in `meta/SPEC.md`.
