@@ -21,8 +21,15 @@ function isAllowedDomain(req: NextRequest) {
   return true;
 }
 
+export async function HEAD(req: NextRequest) {
+  if (!isAllowedDomain(req)) return new NextResponse(null, { status: 403 });
+  return new NextResponse(null, { status: 200 }); // 无限额度
+}
 
 export async function POST(req: NextRequest) {
+  if (req.headers.get('X-PayNode-Probe')) {
+    return new NextResponse(null, { status: 200 }); // 无限额度
+  }
   if (!isAllowedDomain(req)) {
     return NextResponse.json({ error: "FORBIDDEN: Cross-origin requests not allowed." }, { status: 403 });
   }
